@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rezerwacja sali</title>
   
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
   </script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js">
@@ -25,17 +26,16 @@
     .btn-success:hover { background: #16a34a; }
     .btn-admin { background: #8b5cf6; color: white; }
     .btn-admin:hover { background: #7c3aed; }
-    .btn-primary { background: #3b82f6; color: white; }
-    .btn-primary:hover { background: #2563eb; }
     .btn-danger { background: #ef4444; color: white; }
     .btn-danger:hover { background: #dc2626; }
     .btn-warning { background: #f59e0b; color: white; }
     .btn-warning:hover { background: #d97706; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
     .hidden { display: none !important; }
     .login-divider { border: none; border-top: 2px dashed #e2e8f0; margin: 20px 0; }
     .login-section-title { text-align: center; font-weight: 700; color: #64748b; font-size: 14px; margin: 8px 0 4px; }
     
-    /* QUEUE PAGE */
     #queuePage { text-align: center; padding: 40px 20px; }
     #queuePage .queue-number { font-size: 72px; font-weight: 900; color: #3b82f6; margin: 20px 0; }
     #queuePage .queue-info { font-size: 18px; color: #475569; margin: 10px 0; }
@@ -149,7 +149,7 @@
 
   <script>
     // ============================================================
-    // 🔥 KONFIGURACJA FIREBASE
+    // 🔥 KONFIGURACJA FIREBASE (WYPEŁNIJ SWOIMI DANYMI)
     // ============================================================
     const firebaseConfig = {
       apiKey: "AIzaSyDNnpV8ETND_vIGtDnMhHmpcG-CbZRZg9k",
@@ -172,10 +172,10 @@
     const COLS = 8;
     const BLOCKED_ROW = 1;
     const ADMIN_CREDENTIALS = { login: 'admin', password: 'admin123' };
-    const SESSION_TIMEOUT = 100;
+    const SESSION_TIMEOUT = 100; // 100 sekund
 
     // ============================================================
-    // STAN
+    // STAN APLIKACJI
     // ============================================================
     let seats = [];
     let queue = [];
@@ -184,11 +184,10 @@
     let timerInterval = null;
     let timeLeft = SESSION_TIMEOUT;
     let isInQueuePage = false;
-    let queueCheckInterval = null;
-    let currentSessionUser = null;
+    let isEnteringHall = false;
 
     // ============================================================
-    // NASŁUCHIWANIE ZMIAN W CHMURZE
+    // NASŁUCHIWANIE ZMIAN W BAZIE (REAL TIME)
     // ============================================================
     const stateRef = db.ref('/');
     stateRef.on('value', (snapshot) => {
@@ -196,13 +195,12 @@
       if (data) {
         seats = data.seats || [];
         queue = data.queue || [];
-        currentSessionUser = data.currentSessionUser || null;
         updateUsedIndices();
         render();
         
-        // Sprawdzenie czy użytkownik w kolejce może wejść
-        if (isInQueuePage && currentUser && !currentUser.isAdmin) {
-          checkIfCanEnter();
+        // Sprawdź czy użytkownik w kolejce może wejść
+        if (isInQueuePage && currentUser && !currentUser.isAdmin && !isEnteringHall) {
+          checkQueueAndEnter();
         }
       } else {
         initSeats();
@@ -234,35 +232,38 @@
     function seatId(row, col) { return (row - 1) * COLS + (col - 1); }
 
     // ============================================================
-    // SPRAWDZANIE CZY MOŻNA WEJŚĆ Z KOLEJKI
+    // LOGIKA KOLEJKI I WEJŚCIA NA SALĘ
     // ============================================================
-    function checkIfCanEnter() {
-      if (!currentUser || currentUser.isAdmin) return;
-      if (!isInQueuePage) return;
+    function checkQueueAndEnter() {
+      if (!currentUser || currentUser.isAdmin || !isInQueuePage || isEnteringHall) return;
 
-      // Sprawdzenie czy użytkownik ma już miejsce
-      const hasSeat = seats.some(s => s.taken && !s.blocked && s.index === currentUser.index);
-      if (hasSeat) {
+      // Czy użytkownik ma już miejsce?
+      if (usedIndices.has(currentUser.index)) {
         goToMainScreen();
         return;
       }
 
-      // Sprawdzenie czy użytkownik jest w kolejce
+      // Czy użytkownik jest w kolejce?
       const queueIndex = queue.findIndex(item => item.index === currentUser.index);
       if (queueIndex === -1) {
-        // Jeśli nie ma miejsca i nie jest w kolejce - wyloguj
+        // Jeśli nie ma miejsca i nie jest w kolejce – wyloguj
         logout();
         return;
       }
 
-      // Aktualizacja strony kolejki
+      // Aktualizuj stronę kolejki
       updateQueuePage(queueIndex);
 
-      // Jeśli jesteś pierwszy w kolejce i nikt nie jest na sali
-      if (queueIndex === 0 && !currentSessionUser) {
-        // Wejdź na salę!
-        enterHall();
-      }
+      // SPRAWDZAMY: Czy jesteś pierwszy i nikt nie jest na sali?
+      db.ref('/currentSessionUser').once('value', (snapshot) => {
+        const sessionUser = snapshot.val();
+        if (queueIndex === 0 && !sessionUser) {
+          // WEJDŹ NA SALĘ
+          isEnteringHall = true;
+          enterHall();
+          isEnteringHall = false;
+        }
+      });
     }
 
     function updateQueuePage(queueIndex) {
@@ -272,29 +273,24 @@
       document.getElementById('queueNumberDisplay').textContent = position;
       document.getElementById('queueTotalDisplay').textContent = total;
       document.getElementById('queueInfoDisplay').textContent =
-        position === 1 && !currentSessionUser ? '🔔 Jesteś PIERWSZY! Za chwilę wejdziesz do sali...' :
-        position === 1 && currentSessionUser ? '⏳ Oczekiwanie na zwolnienie sali...' :
+        position === 1 ? '🔔 Jesteś PIERWSZY! Czekaj na wejście do sali...' :
         `⏳ Oczekiwanie na wejście do sali...`;
 
       const freeSeats = seats.filter(s => !s.taken && !s.blocked).length;
       document.getElementById('queueFreeSeats').textContent = freeSeats;
     }
 
-    // ============================================================
-    // WEJŚCIE NA SALĘ Z KOLEJKI
-    // ============================================================
     function enterHall() {
       if (!currentUser || currentUser.isAdmin) return;
-      if (currentSessionUser) return; // Ktoś już jest na sali
 
-      // Usuń z kolejki
+      // 1. Usuń z kolejki
       const newQueue = queue.filter(item => item.index !== currentUser.index);
       db.ref('/queue').set(newQueue);
-      
-      // Ustaw sesję
+
+      // 2. Zajmij sesję
       db.ref('/currentSessionUser').set(currentUser.index);
-      
-      // Przejdź do sali
+
+      // 3. Przejdź do sali
       goToMainScreen();
       alert('✅ Zwolniło się miejsce! Możesz teraz wybrać miejsce.');
     }
@@ -304,8 +300,7 @@
     // ============================================================
     function goToMainScreen() {
       isInQueuePage = false;
-      if (queueCheckInterval) { clearInterval(queueCheckInterval); queueCheckInterval = null; }
-
+      isEnteringHall = false;
       document.getElementById('queuePage').classList.add('hidden');
       document.getElementById('mainSection').classList.remove('hidden');
 
@@ -325,45 +320,46 @@
         adminPanel.classList.add('hidden');
         adminBadge.classList.add('hidden');
       }
-
       render();
     }
 
     function goToQueuePage() {
       isInQueuePage = true;
+      isEnteringHall = false;
       document.getElementById('mainSection').classList.add('hidden');
       document.getElementById('queuePage').classList.remove('hidden');
 
       const display = document.getElementById('queueUserDisplay');
       display.textContent = `👤 Indeks: ${currentUser.index}`;
 
-      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+      if (timerInterval) clearInterval(timerInterval);
       startTimer('queueTimerDisplay');
 
-      if (queueCheckInterval) { clearInterval(queueCheckInterval); }
-      queueCheckInterval = setInterval(() => {
-        if (currentUser && !currentUser.isAdmin && isInQueuePage) {
-          checkIfCanEnter();
+      // Sprawdzaj co 2 sekundy czy można wejść
+      if (window.queueCheckInterval) clearInterval(window.queueCheckInterval);
+      window.queueCheckInterval = setInterval(() => {
+        if (currentUser && !currentUser.isAdmin && isInQueuePage && !isEnteringHall) {
+          checkQueueAndEnter();
         }
       }, 2000);
-
-      setTimeout(() => checkIfCanEnter(), 500);
     }
 
     function showLoginScreen() {
       document.getElementById('loginSection').classList.remove('hidden');
       document.getElementById('mainSection').classList.add('hidden');
       document.getElementById('queuePage').classList.add('hidden');
-      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-      if (queueCheckInterval) { clearInterval(queueCheckInterval); queueCheckInterval = null; }
+      if (timerInterval) clearInterval(timerInterval);
+      if (window.queueCheckInterval) clearInterval(window.queueCheckInterval);
       document.getElementById('timerDisplay').textContent = '';
       document.getElementById('queueTimerDisplay').textContent = '';
       currentUser = null;
       timeLeft = SESSION_TIMEOUT;
       isInQueuePage = false;
+      isEnteringHall = false;
     }
 
     function logout() {
+      // Zwolnij sesję jeśli byłeś na sali
       if (currentUser && !currentUser.isAdmin) {
         db.ref('/currentSessionUser').remove();
       }
@@ -372,8 +368,8 @@
       document.getElementById('adminLogin').value = '';
       document.getElementById('adminPassword').value = '';
       document.getElementById('loginError').textContent = '';
-      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-      if (queueCheckInterval) { clearInterval(queueCheckInterval); queueCheckInterval = null; }
+      if (timerInterval) clearInterval(timerInterval);
+      if (window.queueCheckInterval) clearInterval(window.queueCheckInterval);
     }
 
     // ============================================================
@@ -449,7 +445,7 @@
     }
 
     // ============================================================
-    // REZERWACJA
+    // REZERWACJA MIEJSCA
     // ============================================================
     function handleSeatClick(idx) {
       const seat = seats[idx];
@@ -485,16 +481,12 @@
         surname: ''
       });
       
-      // Zwolnij sesję
       db.ref('/currentSessionUser').remove();
       
       alert('✅ Zarezerwowano!');
       processQueue();
       
-      // Wyloguj po rezerwacji
-      setTimeout(() => {
-        logout();
-      }, 2000);
+      setTimeout(() => { logout(); }, 2000);
     }
 
     // ============================================================
@@ -514,32 +506,22 @@
     }
 
     // ============================================================
-    // PROCESOWANIE KOLEJKI
+    // PROCESOWANIE KOLEJKI (przydzielanie miejsca z kolejki)
     // ============================================================
     function processQueue() {
       if (queue.length === 0) return;
       
-      // Sprawdź czy jest wolne miejsce
       const freeIdx = seats.findIndex(s => !s.taken && !s.blocked);
       if (freeIdx === -1) return;
 
-      // Weź pierwszą osobę z kolejki
       const next = queue.shift();
       const newQueue = [...queue];
       db.ref('/queue').set(newQueue);
       
-      // Ustaw sesję dla tej osoby (wejdą automatycznie przez checkIfCanEnter)
+      // Dajemy znać, że ta osoba może wejść na salę
       db.ref('/currentSessionUser').set(next.index);
       
       alert(`🔔 Osoba z indeksem ${next.index} może teraz wejść na salę.`);
-      
-      // Jeśli są kolejne osoby w kolejce i wolne miejsca - kontynuuj
-      if (newQueue.length > 0) {
-        const nextFree = seats.findIndex(s => !s.taken && !s.blocked);
-        if (nextFree !== -1) {
-          setTimeout(processQueue, 500);
-        }
-      }
     }
 
     // ============================================================
@@ -585,7 +567,6 @@
 
       if (!index) { errorEl.textContent = '❌ Podaj numer indeksu'; return; }
 
-      // Sprawdzenie czy indeks ma już miejsce
       if (usedIndices.has(index)) {
         errorEl.textContent = `❌ Indeks "${index}" ma już zarezerwowane miejsce!`;
         return;
@@ -593,31 +574,32 @@
 
       currentUser = { index, isAdmin: false };
 
-      // Sprawdzenie czy użytkownik jest w kolejce
-      const inQueue = queue.some(item => item.index === index);
-      if (inQueue) {
+      // Czy użytkownik jest już w kolejce?
+      if (queue.some(item => item.index === index)) {
         showMainScreen();
         startTimer();
         goToQueuePage();
         return;
       }
 
-      // Sprawdzenie czy ktoś jest na sali
-      if (currentSessionUser) {
-        // Ktoś jest na sali - dodaj do kolejki
-        const newQueue = [...queue, { index }];
-        db.ref('/queue').set(newQueue);
-        showMainScreen();
-        startTimer();
-        goToQueuePage();
-        alert(`⏳ Ktoś już wybiera miejsce. Dodano do kolejki (pozycja ${newQueue.length})`);
-        return;
-      }
-
-      // Nikt nie jest na sali - wejdź
-      db.ref('/currentSessionUser').set(index);
-      showMainScreen();
-      startTimer();
+      // Sprawdź czy ktoś jest na sali
+      db.ref('/currentSessionUser').once('value', (snapshot) => {
+        const sessionUser = snapshot.val();
+        if (sessionUser) {
+          // Ktoś jest na sali -> dodaj do kolejki
+          const newQueue = [...queue, { index }];
+          db.ref('/queue').set(newQueue);
+          showMainScreen();
+          startTimer();
+          goToQueuePage();
+          alert(`⏳ Ktoś już wybiera miejsce. Dodano do kolejki (pozycja ${newQueue.length})`);
+        } else {
+          // Nikt nie jest na sali -> wejdź
+          db.ref('/currentSessionUser').set(index);
+          showMainScreen();
+          startTimer();
+        }
+      });
     }
 
     function adminLogin() {
@@ -629,7 +611,7 @@
       if (login === ADMIN_CREDENTIALS.login && pass === ADMIN_CREDENTIALS.password) {
         currentUser = { index: 'ADMIN', isAdmin: true };
         showMainScreen();
-        if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+        if (timerInterval) clearInterval(timerInterval);
         document.getElementById('timerDisplay').textContent = '';
         render();
       } else {
@@ -660,12 +642,12 @@
       }
 
       isInQueuePage = false;
-      if (queueCheckInterval) { clearInterval(queueCheckInterval); queueCheckInterval = null; }
+      if (window.queueCheckInterval) clearInterval(window.queueCheckInterval);
       render();
     }
 
     // ============================================================
-    // TIMER
+    // TIMER (100 SEKUND)
     // ============================================================
     function startTimer(elementId = 'timerDisplay') {
       if (timerInterval) clearInterval(timerInterval);
@@ -706,9 +688,7 @@
       const newQueue = queue.filter(item => item.index !== currentUser.index);
       db.ref('/queue').set(newQueue);
       
-      if (currentSessionUser === currentUser.index) {
-        db.ref('/currentSessionUser').remove();
-      }
+      db.ref('/currentSessionUser').remove();
 
       alert('❌ Zrezygnowałeś z kolejki.');
       logout();
@@ -747,7 +727,7 @@
     }
 
     // ============================================================
-    // EVENTY
+    // START
     // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('studentLoginBtn').addEventListener('click', studentLogin);
