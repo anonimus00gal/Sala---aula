@@ -128,6 +128,39 @@
       font-size: 14px;
       margin: 8px 0 4px;
     }
+    
+    /* QUEUE PAGE */
+    #queuePage {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    #queuePage .queue-number {
+      font-size: 72px;
+      font-weight: 900;
+      color: #3b82f6;
+      margin: 20px 0;
+    }
+    #queuePage .queue-info {
+      font-size: 18px;
+      color: #475569;
+      margin: 10px 0;
+    }
+    #queuePage .queue-status {
+      background: #f8fafc;
+      border-radius: 16px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .waiting-animation {
+      display: inline-block;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.4; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+      100% { opacity: 0.4; transform: scale(1); }
+    }
+    
     #hall {
       display: grid;
       grid-template-columns: repeat(8, 1fr);
@@ -341,6 +374,9 @@
         font-size: 10px;
         min-height: 40px;
       }
+      #queuePage .queue-number {
+        font-size: 48px;
+      }
     }
   </style>
 </head>
@@ -369,7 +405,28 @@
       <div id="loginError" class="error-msg"></div>
     </div>
 
-    <!-- STRONA GŁÓWNA -->
+    <!-- STRONA KOLEJKI (dla studentów) -->
+    <div id="queuePage" class="hidden">
+      <div class="user-info">
+        <span class="name" id="queueUserDisplay">👤 </span>
+        <span id="queueTimerDisplay" class="timer"></span>
+        <button class="logout-btn" id="queueLogoutBtn">Wyloguj</button>
+      </div>
+      <div class="queue-status">
+        <div class="waiting-animation" style="font-size:48px;">⏳</div>
+        <h2>Jesteś w kolejce</h2>
+        <div class="queue-number" id="queueNumberDisplay">-</div>
+        <div class="queue-info" id="queueInfoDisplay">Oczekiwanie na wolne miejsce...</div>
+        <div style="margin-top:20px; background:#f1f5f9; padding:15px; border-radius:12px;">
+          <p style="margin:5px 0; color:#475569;">👥 <span id="queueTotalDisplay">0</span> osób czeka przed Tobą</p>
+          <p style="margin:5px 0; color:#475569;">📌 Wolne miejsca: <span id="queueFreeSeats">0</span></p>
+        </div>
+      </div>
+      <button class="btn btn-danger" id="queueLeaveBtn">❌ Zrezygnuj z kolejki</button>
+      <p style="color:#94a3b8; font-size:13px; margin-top:16px;">Nie zamykaj tej strony – automatycznie przejdziesz do rezerwacji, gdy zwolni się miejsce</p>
+    </div>
+
+    <!-- STRONA GŁÓWNA (SALA) -->
     <div id="mainSection" class="hidden">
       <div class="user-info">
         <span class="name" id="userDisplay">👤 </span>
@@ -377,7 +434,6 @@
         <button class="logout-btn" id="logoutBtn">Wyloguj</button>
       </div>
       <div id="adminBadge" class="hidden" style="background:#fef9c3; padding:5px 12px; border-radius:20px; text-align:center; font-weight:700; margin-bottom:12px;">⭐ Jesteś administratorem</div>
-      <div id="queuePositionDisplay" style="text-align:center; margin:4px 0;"></div>
       <div id="hall"></div>
       <div id="queue-section">
         <div id="status">
@@ -400,7 +456,7 @@
 
   <script>
     // ============================================================
-    // 🔥 KONFIGURACJA FIREBASE (Wypełnij swoimi danymi)
+    // 🔥 KONFIGURACJA FIREBASE
     // ============================================================
     const firebaseConfig = {
       apiKey: "AIzaSyDNnpV8ETND_vIGtDnMhHmpcG-CbZRZg9k",
@@ -434,6 +490,8 @@
     let currentUser = null;
     let timerInterval = null;
     let timeLeft = SESSION_TIMEOUT;
+    let isInQueuePage = false;
+    let queueCheckInterval = null;
 
     // ============================================================
     // NASŁUCHIWANIE ZMIAN W CHMURZE (REAL TIME)
@@ -446,6 +504,10 @@
         queue = data.queue || [];
         updateUsedIndices();
         render();
+        // Jeśli użytkownik jest na stronie kolejki – sprawdź czy dostał miejsce
+        if (isInQueuePage && currentUser && !currentUser.isAdmin) {
+          checkQueueStatus();
+        }
       } else {
         initSeats();
       }
@@ -476,7 +538,177 @@
     function seatId(row, col) { return (row - 1) * COLS + (col - 1); }
 
     // ============================================================
-    // RENDER
+    // SPRAWDZANIE STATUSU W KOLEJCE
+    // ============================================================
+    function checkQueueStatus() {
+      if (!currentUser || currentUser.isAdmin) return;
+
+      // Czy użytkownik ma już miejsce?
+      const hasSeat = seats.some(s => s.taken && !s.blocked && s.index === currentUser.index);
+      if (hasSeat) {
+        // Przejście do sali
+        goToMainScreen();
+        return;
+      }
+
+      // Czy jest w kolejce?
+      const queueIndex = queue.findIndex(item => item.index === currentUser.index);
+      if (queueIndex === -1) {
+        // Jeśli nie ma miejsca i nie jest w kolejce – wróć do logowania
+        alert('❌ Zostałeś usunięty z kolejki. Zaloguj się ponownie.');
+        logout();
+        return;
+      }
+
+      // Aktualizacja strony kolejki
+      updateQueuePage(queueIndex);
+    }
+
+    function updateQueuePage(queueIndex) {
+      const position = queueIndex + 1;
+      const total = queue.length;
+
+      document.getElementById('queueNumberDisplay').textContent = position;
+      document.getElementById('queueTotalDisplay').textContent = total;
+      document.getElementById('queueInfoDisplay').textContent =
+        position === 1 ? '🔔 Jesteś PIERWSZY! Czekaj na wolne miejsce...' :
+        `⏳ Oczekiwanie na zwolnienie miejsca...`;
+
+      const freeSeats = seats.filter(s => !s.taken && !s.blocked).length;
+      document.getElementById('queueFreeSeats').textContent = freeSeats;
+
+      // Jeśli jesteś pierwszy i są wolne miejsca – odśwież
+      if (position === 1 && freeSeats > 0) {
+        // Sprawdź czy któreś wolne miejsce jest dostępne
+        const freeIdx = seats.findIndex(s => !s.taken && !s.blocked);
+        if (freeIdx !== -1) {
+          // Rezerwuj automatycznie dla użytkownika
+          autoReserveForQueueUser(freeIdx);
+        }
+      }
+    }
+
+    function autoReserveForQueueUser(idx) {
+      if (!currentUser || currentUser.isAdmin) return;
+      const seat = seats[idx];
+      if (seat.taken || seat.blocked) return;
+
+      // Rezerwacja dla użytkownika z kolejki
+      db.ref(`/seats/${idx}`).set({
+        taken: true,
+        blocked: false,
+        index: currentUser.index,
+        name: currentUser.name,
+        surname: currentUser.surname
+      });
+
+      // Usunięcie z kolejki
+      const newQueue = queue.filter(item => item.index !== currentUser.index);
+      db.ref('/queue').set(newQueue);
+
+      alert('🎉 Znalazło się wolne miejsce! Przechodzisz do rezerwacji.');
+      goToMainScreen();
+    }
+
+    // ============================================================
+    // PRZEŁĄCZANIE EKRANÓW
+    // ============================================================
+    function goToMainScreen() {
+      isInQueuePage = false;
+      if (queueCheckInterval) { clearInterval(queueCheckInterval);
+        queueCheckInterval = null; }
+
+      document.getElementById('queuePage').classList.add('hidden');
+      document.getElementById('mainSection').classList.remove('hidden');
+
+      const display = document.getElementById('userDisplay');
+      if (currentUser.isAdmin) {
+        display.textContent = '👑 Administrator';
+      } else {
+        display.textContent = `👤 ${currentUser.name} ${currentUser.surname} (${currentUser.index})`;
+      }
+
+      const adminPanel = document.getElementById('adminPanel');
+      const adminBadge = document.getElementById('adminBadge');
+      if (currentUser.isAdmin) {
+        adminPanel.classList.remove('hidden');
+        adminBadge.classList.remove('hidden');
+      } else {
+        adminPanel.classList.add('hidden');
+        adminBadge.classList.add('hidden');
+      }
+
+      render();
+    }
+
+    function goToQueuePage() {
+      isInQueuePage = true;
+      document.getElementById('mainSection').classList.add('hidden');
+      document.getElementById('queuePage').classList.remove('hidden');
+
+      const display = document.getElementById('queueUserDisplay');
+      display.textContent = `👤 ${currentUser.name} ${currentUser.surname} (${currentUser.index})`;
+
+      // Timer dla kolejki (też 100s)
+      if (timerInterval) { clearInterval(timerInterval);
+        timerInterval = null; }
+      startTimer('queueTimerDisplay');
+
+      // Sprawdź status co 2 sekundy
+      if (queueCheckInterval) { clearInterval(queueCheckInterval); }
+      queueCheckInterval = setInterval(() => {
+        if (currentUser && !currentUser.isAdmin) {
+          checkQueueStatus();
+        }
+      }, 2000);
+
+      // Pierwsze sprawdzenie
+      setTimeout(() => checkQueueStatus(), 500);
+    }
+
+    // ============================================================
+    // REJESTRACJA W KOLEJCE
+    // ============================================================
+    function joinQueue() {
+      if (!currentUser || currentUser.isAdmin) return;
+
+      // Sprawdzenie czy użytkownik ma już miejsce
+      if (usedIndices.has(currentUser.index)) {
+        alert('❌ Masz już zarezerwowane miejsce!');
+        return;
+      }
+
+      // Sprawdzenie czy już jest w kolejce
+      if (queue.some(item => item.index === currentUser.index)) {
+        alert('⏳ Jesteś już w kolejce!');
+        goToQueuePage();
+        return;
+      }
+
+      // Dodanie do kolejki
+      const newQueue = [...queue, { index: currentUser.index, name: currentUser.name, surname: currentUser.surname }];
+      db.ref('/queue').set(newQueue);
+
+      alert(`✅ Dodano do kolejki! Twoja pozycja: ${newQueue.length}`);
+      goToQueuePage();
+    }
+
+    // ============================================================
+    // REZYGNACJA Z KOLEJKI
+    // ============================================================
+    function leaveQueue() {
+      if (!currentUser || currentUser.isAdmin) return;
+      if (!confirm('Czy na pewno chcesz zrezygnować z kolejki?')) return;
+
+      const newQueue = queue.filter(item => item.index !== currentUser.index);
+      db.ref('/queue').set(newQueue);
+
+      alert('❌ Zrezygnowałeś z kolejki.');
+      logout();
+    }
+
+    // ============================================================
+    // RENDER (SALA)
     // ============================================================
     function render() {
       const hall = document.getElementById('hall');
@@ -523,7 +755,6 @@
       const occupied = seats.filter(s => s.taken && !s.blocked).length;
       document.getElementById('queue-count').textContent = queue.length;
       document.getElementById('occupied-count').textContent = occupied;
-      updateQueuePosition();
 
       const list = document.getElementById('queue-list');
       list.innerHTML = '';
@@ -548,33 +779,6 @@
       }
     }
 
-    function updateQueuePosition() {
-      const display = document.getElementById('queuePositionDisplay');
-      if (!display) return;
-      if (!currentUser || currentUser.isAdmin) { display.innerHTML = ''; return; }
-
-      // Sprawdzenie czy użytkownik ma już miejsce
-      const hasSeat = seats.some(s => s.taken && !s.blocked && s.index === currentUser.index);
-      if (hasSeat) {
-        display.innerHTML = '<span class="queue-position" style="background:#22c55e;">✅ Masz już zarezerwowane miejsce!</span>';
-        return;
-      }
-
-      // Sprawdzenie czy jest w kolejce
-      const pos = queue.findIndex(item => item.index === currentUser.index);
-      if (pos === -1) {
-        // Jeśli nie ma miejsca i nie jest w kolejce – pokazujemy info
-        display.innerHTML = '<span class="queue-position" style="background:#f59e0b;">📌 Nie masz miejsca ani nie czekasz w kolejce</span>';
-        return;
-      }
-
-      const position = pos + 1;
-      const total = queue.length;
-      let msg = `⏳ Jesteś ${position}. w kolejce (na ${total} osób)`;
-      if (position === 1) msg = '🔔 Jesteś PIERWSZY w kolejce! Czekaj na wolne miejsce.';
-      display.innerHTML = `<span class="queue-position">${msg}</span>`;
-    }
-
     // ============================================================
     // REZERWACJA
     // ============================================================
@@ -582,20 +786,15 @@
       const seat = seats[idx];
       if (seat.taken || seat.blocked || !currentUser) return;
 
-      // ADMIN – rezerwuje dla kogoś
+      // ADMIN
       if (currentUser.isAdmin) {
         const data = promptForData();
         if (!data) return;
         if (usedIndices.has(data.index)) { alert('❌ Ten indeks ma już miejsce!'); return; }
         if (!confirm(`Czy na pewno chcesz zarezerwować miejsce dla ${data.name} ${data.surname} (${data.index})?`)) return;
 
-        const seatRef = db.ref(`/seats/${idx}`);
-        seatRef.transaction((current) => {
-          if (current === null) return { taken: true, blocked: false, index: data.index, name: data.name, surname: data
-              .surname };
-          if (current.taken) return;
-          return { taken: true, blocked: false, index: data.index, name: data.name, surname: data.surname };
-        });
+        db.ref(`/seats/${idx}`).set({ taken: true, blocked: false, index: data.index, name: data.name, surname: data
+            .surname });
         alert('✅ Zarezerwowano!');
         processQueue();
         return;
@@ -603,38 +802,50 @@
 
       // STUDENT – sprawdzenie czy ma już miejsce
       if (usedIndices.has(currentUser.index)) {
-        alert('❌ Masz już zarezerwowane miejsce! Nie możesz zarezerwować kolejnego.');
+        alert('❌ Masz już zarezerwowane miejsce!');
         return;
       }
 
       // Sprawdzenie czy jest w kolejce
       if (queue.some(item => item.index === currentUser.index)) {
-        alert('⏳ Jesteś już w kolejce! Czekaj na zwolnienie miejsca.');
+        alert('⏳ Jesteś już w kolejce!');
+        goToQueuePage();
         return;
       }
 
-      // Jeśli jest kolejka – dodajemy na koniec
-      if (queue.length > 0) {
-        if (!confirm(`Czy na pewno chcesz dołączyć do kolejki? (obecnie ${queue.length} osób czeka)`)) return;
-        const newQueue = [...queue, { index: currentUser.index, name: currentUser.name, surname: currentUser.surname }];
-        db.ref('/queue').set(newQueue);
-        alert(`⏳ Dodano do kolejki! Twoja pozycja: ${newQueue.length}`);
-        return;
-      }
-
-      // Kolejka pusta – pytanie o potwierdzenie
+      // Jeśli są wolne miejsca – rezerwacja od razu
       if (!confirm(`Czy na pewno chcesz zarezerwować to miejsce dla ${currentUser.name} ${currentUser.surname}?`)) return;
 
-      const seatRef = db.ref(`/seats/${idx}`);
-      seatRef.transaction((current) => {
-        if (current === null) return { taken: true, blocked: false, index: currentUser.index, name: currentUser.name,
-          surname: currentUser.surname };
-        if (current.taken) return;
-        return { taken: true, blocked: false, index: currentUser.index, name: currentUser.name, surname: currentUser
-            .surname };
+      db.ref(`/seats/${idx}`).set({
+        taken: true,
+        blocked: false,
+        index: currentUser.index,
+        name: currentUser.name,
+        surname: currentUser.surname
       });
       alert('✅ Zarezerwowano!');
       processQueue();
+    }
+
+    // ============================================================
+    // STUDENT – DOŁĄCZ DO KOLEJKI
+    // ============================================================
+    function studentJoinQueue() {
+      if (!currentUser || currentUser.isAdmin) return;
+      if (usedIndices.has(currentUser.index)) {
+        alert('❌ Masz już zarezerwowane miejsce!');
+        return;
+      }
+      if (queue.some(item => item.index === currentUser.index)) {
+        alert('⏳ Jesteś już w kolejce!');
+        goToQueuePage();
+        return;
+      }
+
+      const newQueue = [...queue, { index: currentUser.index, name: currentUser.name, surname: currentUser.surname }];
+      db.ref('/queue').set(newQueue);
+      alert(`✅ Dodano do kolejki! Pozycja: ${newQueue.length}`);
+      goToQueuePage();
     }
 
     // ============================================================
@@ -664,10 +875,14 @@
       const next = queue.shift();
       const newQueue = [...queue];
       db.ref('/queue').set(newQueue);
-      db.ref(`/seats/${freeIdx}`).set({ taken: true, blocked: false, index: next.index, name: next.name, surname: next
-          .surname });
+      db.ref(`/seats/${freeIdx}`).set({
+        taken: true,
+        blocked: false,
+        index: next.index,
+        name: next.name,
+        surname: next.surname
+      });
 
-      // Jeśli są jeszcze osoby w kolejce i wolne miejsca – kontynuujemy
       if (newQueue.length > 0) {
         const nextFree = seats.findIndex(s => !s.taken && !s.blocked);
         if (nextFree !== -1) {
@@ -736,13 +951,36 @@
       if (!surname) { errorEl.textContent = '❌ Podaj nazwisko'; return; }
       if (!index) { errorEl.textContent = '❌ Podaj indeks'; return; }
 
-      // Sprawdzenie czy indeks ma już miejsce
       if (usedIndices.has(index)) {
         errorEl.textContent = `❌ Indeks "${index}" ma już zarezerwowane miejsce!`;
         return;
       }
 
       currentUser = { name, surname, index, isAdmin: false };
+
+      // Sprawdzenie czy użytkownik jest w kolejce
+      const inQueue = queue.some(item => item.index === index);
+      if (inQueue) {
+        showMainScreen();
+        startTimer();
+        goToQueuePage();
+        return;
+      }
+
+      // Sprawdzenie czy są wolne miejsca
+      const freeSeats = seats.filter(s => !s.taken && !s.blocked).length;
+      if (freeSeats === 0) {
+        // Jeśli brak wolnych miejsc – automatycznie dodaj do kolejki
+        const newQueue = [...queue, { index, name, surname }];
+        db.ref('/queue').set(newQueue);
+        showMainScreen();
+        startTimer();
+        goToQueuePage();
+        alert(`⏳ Brak wolnych miejsc. Dodano do kolejki (pozycja ${newQueue.length})`);
+        return;
+      }
+
+      // Są wolne miejsca – przejdź do sali
       showMainScreen();
       startTimer();
     }
@@ -766,6 +1004,7 @@
 
     function showMainScreen() {
       document.getElementById('loginSection').classList.add('hidden');
+      document.getElementById('queuePage').classList.add('hidden');
       document.getElementById('mainSection').classList.remove('hidden');
 
       const display = document.getElementById('userDisplay');
@@ -784,16 +1023,26 @@
         adminPanel.classList.add('hidden');
         adminBadge.classList.add('hidden');
       }
+
+      isInQueuePage = false;
+      if (queueCheckInterval) { clearInterval(queueCheckInterval);
+        queueCheckInterval = null; }
+      render();
     }
 
     function showLoginScreen() {
       document.getElementById('loginSection').classList.remove('hidden');
       document.getElementById('mainSection').classList.add('hidden');
+      document.getElementById('queuePage').classList.add('hidden');
       if (timerInterval) { clearInterval(timerInterval);
         timerInterval = null; }
+      if (queueCheckInterval) { clearInterval(queueCheckInterval);
+        queueCheckInterval = null; }
       document.getElementById('timerDisplay').textContent = '';
+      document.getElementById('queueTimerDisplay').textContent = '';
       currentUser = null;
       timeLeft = SESSION_TIMEOUT;
+      isInQueuePage = false;
     }
 
     function logout() {
@@ -806,18 +1055,20 @@
       document.getElementById('loginError').textContent = '';
       if (timerInterval) { clearInterval(timerInterval);
         timerInterval = null; }
+      if (queueCheckInterval) { clearInterval(queueCheckInterval);
+        queueCheckInterval = null; }
     }
 
     // ============================================================
     // TIMER
     // ============================================================
-    function startTimer() {
+    function startTimer(elementId = 'timerDisplay') {
       if (timerInterval) clearInterval(timerInterval);
       timeLeft = SESSION_TIMEOUT;
-      updateTimerDisplay();
+      updateTimerDisplay(elementId);
       timerInterval = setInterval(() => {
         timeLeft--;
-        updateTimerDisplay();
+        updateTimerDisplay(elementId);
         if (timeLeft <= 0) {
           clearInterval(timerInterval);
           timerInterval = null;
@@ -827,8 +1078,8 @@
       }, 1000);
     }
 
-    function updateTimerDisplay() {
-      const el = document.getElementById('timerDisplay');
+    function updateTimerDisplay(elementId) {
+      const el = document.getElementById(elementId);
       if (!el) return;
       if (currentUser && !currentUser.isAdmin) {
         el.textContent = `⏳ ${timeLeft}s`;
@@ -871,7 +1122,7 @@
     }
 
     // ============================================================
-    // START
+    // EVENTY
     // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('studentLoginBtn').addEventListener('click', studentLogin);
@@ -885,12 +1136,13 @@
       });
 
       document.getElementById('logoutBtn').addEventListener('click', logout);
+      document.getElementById('queueLogoutBtn').addEventListener('click', logout);
+      document.getElementById('queueLeaveBtn').addEventListener('click', leaveQueue);
       document.getElementById('exportBtn').addEventListener('click', exportCSV);
       document.getElementById('resetBtn').addEventListener('click', resetAll);
       document.getElementById('shareLinkBtn').addEventListener('click', copyLink);
       document.getElementById('qrBtn').addEventListener('click', showQR);
 
-      // Inicjalizacja danych
       if (!seats || seats.length === 0) {
         initSeats();
       }
