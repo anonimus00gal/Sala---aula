@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rezerwacja sali</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
     body { background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 16px; }
@@ -25,8 +27,6 @@
     .btn-danger:hover { background: #dc2626; }
     .btn-warning { background: #f59e0b; color: white; }
     .btn-warning:hover { background: #d97706; }
-    .btn-outline { background: transparent; color: #3b82f6; border: 2px solid #3b82f6; }
-    .btn-outline:hover { background: #3b82f6; color: white; }
     .hidden { display: none !important; }
     .login-divider { border: none; border-top: 2px dashed #e2e8f0; margin: 20px 0; }
     .login-section-title { text-align: center; font-weight: 700; color: #64748b; font-size: 14px; margin: 8px 0 4px; }
@@ -69,7 +69,6 @@
   <h1>🏛️ Rezerwacja sali</h1>
   <p class="sub">14 rzędów × 8 miejsc – rząd 1 zablokowany</p>
 
-  <!-- LOGOWANIE -->
   <div id="loginSection" class="login-box">
     <div class="login-section-title">🎓 LOGOWANIE STUDENTA</div>
     <label>👤 Imię</label>
@@ -89,7 +88,6 @@
     <div id="loginError" class="error-msg"></div>
   </div>
 
-  <!-- STRONA GŁÓWNA -->
   <div id="mainSection" class="hidden">
     <div class="user-info">
       <span class="name" id="userDisplay">👤 </span>
@@ -114,19 +112,37 @@
       <button class="btn btn-primary" id="shareLinkBtn">🔗 Skopiuj link</button>
       <button class="btn btn-warning" id="qrBtn">📱 Kod QR</button>
     </div>
-    <p class="footer-note">Dane zapisują się automatycznie na Twoim urządzeniu</p>
+    <p class="footer-note">Dane zapisują się w chmurze – wszyscy widzą te same rezerwacje</p>
   </div>
 </div>
 
 <script>
   // ============================================================
-  // KONFIGURACJA
+  // 🔥 KONFIGURACJA FIREBASE (TWOJE DANE)
+  // ============================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyDNnpV8ETND_vIGtDnMhHmpcG-CbZRZg9k",
+    authDomain: "rezerwacja-sali-3998f.firebaseapp.com",
+    databaseURL: "https://rezerwacja-sali-3998f-default-rtdb.europe-west1.firebasedatabase.app/",
+    projectId: "rezerwacja-sali-3998f",
+    storageBucket: "rezerwacja-sali-3998f.firebasestorage.app",
+    messagingSenderId: "827019667859",
+    appId: "1:827019667859:web:aa281801dae27788da2066",
+    measurementId: "G-BRBLPTDWHX"
+  };
+
+  // Inicjalizacja Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // ============================================================
+  // KONFIGURACJA SALI
   // ============================================================
   const ROWS = 14;
   const COLS = 8;
   const BLOCKED_ROW = 1;
   const ADMIN_CREDENTIALS = { login: 'admin', password: 'admin123' };
-  const SESSION_TIMEOUT = 100; // sekund
+  const SESSION_TIMEOUT = 100;
 
   // ============================================================
   // STAN
@@ -139,34 +155,32 @@
   let timeLeft = SESSION_TIMEOUT;
 
   // ============================================================
-  // ZAPIS / ODCZYT
+  // NASŁUCHIWANIE ZMIAN W CHMURZE (REAL TIME)
   // ============================================================
-  function saveState() {
-    localStorage.setItem('salaRezerwacjeData', JSON.stringify({ seats, queue }));
-  }
-  function loadState() {
-    const saved = localStorage.getItem('salaRezerwacjeData');
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        seats = data.seats;
-        queue = data.queue;
-        updateUsedIndices();
-        return true;
-      } catch(e) {}
+  const stateRef = db.ref('/');
+  stateRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      seats = data.seats || [];
+      queue = data.queue || [];
+      updateUsedIndices();
+      render();
+    } else {
+      initSeats();
     }
-    return false;
-  }
+  });
+
   function updateUsedIndices() {
     usedIndices = new Set();
     seats.forEach(s => { if (s.taken && !s.blocked && s.index) usedIndices.add(s.index); });
   }
+
   function initSeats() {
-    seats = [];
+    const newSeats = [];
     for (let r = 1; r <= ROWS; r++) {
       for (let c = 1; c <= COLS; c++) {
         const isBlocked = (r === BLOCKED_ROW);
-        seats.push({
+        newSeats.push({
           taken: isBlocked ? true : false,
           blocked: isBlocked,
           index: isBlocked ? 'X' : '',
@@ -175,10 +189,9 @@
         });
       }
     }
-    queue = [];
-    usedIndices = new Set();
-    saveState();
+    db.ref('/').set({ seats: newSeats, queue: [] });
   }
+
   function seatId(row, col) { return (row - 1) * COLS + (col - 1); }
 
   // ============================================================
@@ -195,7 +208,7 @@
       hall.appendChild(label);
       for (let c = 1; c <= COLS; c++) {
         const idx = seatId(r, c);
-        const seat = seats[idx];
+        const seat = seats[idx] || { taken: false, blocked: false, index: '', name: '', surname: '' };
         const btn = document.createElement('button');
         btn.className = 'seat';
         if (seat.blocked) {
@@ -211,7 +224,6 @@
           tooltip.className = 'tooltip';
           tooltip.textContent = `${seat.name} ${seat.surname}`;
           btn.appendChild(tooltip);
-          // Student może kliknąć na swoje miejsce – zwolnić
           if (currentUser && !currentUser.isAdmin && seat.index === currentUser.index) {
             btn.addEventListener('click', () => releaseSeat(idx));
           }
@@ -247,7 +259,6 @@
         list.appendChild(li);
       });
     }
-    saveState();
   }
 
   function updateQueuePosition() {
@@ -269,72 +280,59 @@
   }
 
   // ============================================================
-  // REZERWACJA / ZWOLNIJ
+  // REZERWACJA
   // ============================================================
   function handleSeatClick(idx) {
     const seat = seats[idx];
     if (seat.taken || seat.blocked || !currentUser) return;
 
-    // ADMIN – rezerwuje dla kogoś
     if (currentUser.isAdmin) {
       const data = promptForData();
       if (!data) return;
       if (usedIndices.has(data.index)) { alert('❌ Ten indeks ma już miejsce!'); return; }
-      seat.taken = true;
-      seat.index = data.index;
-      seat.name = data.name;
-      seat.surname = data.surname;
-      usedIndices.add(data.index);
-      render();
+      const seatRef = db.ref(`/seats/${idx}`);
+      seatRef.transaction((current) => {
+        if (current === null) return { taken: true, blocked: false, index: data.index, name: data.name, surname: data.surname };
+        if (current.taken) return;
+        return { taken: true, blocked: false, index: data.index, name: data.name, surname: data.surname };
+      });
       alert('✅ Zarezerwowano!');
       processQueue();
       return;
     }
 
-    // STUDENT
-    // Jeśli ma już miejsce – pytamy o przeniesienie
     if (usedIndices.has(currentUser.index)) {
       if (confirm('Masz już miejsce. Czy chcesz przenieść rezerwację na to nowe miejsce?')) {
         const oldIdx = seats.findIndex(s => s.taken && !s.blocked && s.index === currentUser.index);
         if (oldIdx !== -1) {
-          seats[oldIdx].taken = false;
-          seats[oldIdx].index = '';
-          seats[oldIdx].name = '';
-          seats[oldIdx].surname = '';
-          usedIndices.delete(currentUser.index);
+          db.ref(`/seats/${oldIdx}`).set({ taken: false, blocked: false, index: '', name: '', surname: '' });
         }
-        seat.taken = true;
-        seat.index = currentUser.index;
-        seat.name = currentUser.name;
-        seat.surname = currentUser.surname;
-        usedIndices.add(currentUser.index);
-        render();
+        const seatRef = db.ref(`/seats/${idx}`);
+        seatRef.set({ taken: true, blocked: false, index: currentUser.index, name: currentUser.name, surname: currentUser.surname });
         alert('✅ Przeniesiono rezerwację!');
         return;
       }
       return;
     }
 
-    // Student nie ma miejsca – sprawdzamy kolejkę
     if (queue.some(item => item.index === currentUser.index)) {
       alert('⏳ Jesteś już w kolejce!');
       return;
     }
 
     if (queue.length > 0) {
-      queue.push({ index: currentUser.index, name: currentUser.name, surname: currentUser.surname });
-      render();
+      const newQueue = [...queue, { index: currentUser.index, name: currentUser.name, surname: currentUser.surname }];
+      db.ref('/queue').set(newQueue);
       alert('⏳ Dodano do kolejki!');
       return;
     }
 
-    // Rezerwacja od razu
-    seat.taken = true;
-    seat.index = currentUser.index;
-    seat.name = currentUser.name;
-    seat.surname = currentUser.surname;
-    usedIndices.add(currentUser.index);
-    render();
+    const seatRef = db.ref(`/seats/${idx}`);
+    seatRef.transaction((current) => {
+      if (current === null) return { taken: true, blocked: false, index: currentUser.index, name: currentUser.name, surname: currentUser.surname };
+      if (current.taken) return;
+      return { taken: true, blocked: false, index: currentUser.index, name: currentUser.name, surname: currentUser.surname };
+    });
     alert('✅ Zarezerwowano!');
     processQueue();
   }
@@ -344,12 +342,7 @@
     const seat = seats[idx];
     if (!seat.taken || seat.index !== currentUser.index) return;
     if (confirm('Czy chcesz zwolnić to miejsce?')) {
-      seat.taken = false;
-      seat.index = '';
-      seat.name = '';
-      seat.surname = '';
-      usedIndices.delete(currentUser.index);
-      render();
+      db.ref(`/seats/${idx}`).set({ taken: false, blocked: false, index: '', name: '', surname: '' });
       alert('✅ Miejsce zwolnione.');
       processQueue();
     }
@@ -370,21 +363,13 @@
     const freeIdx = seats.findIndex(s => !s.taken && !s.blocked);
     if (freeIdx === -1) return;
     const next = queue.shift();
-    const seat = seats[freeIdx];
-    seat.taken = true;
-    seat.index = next.index;
-    seat.name = next.name;
-    seat.surname = next.surname;
-    usedIndices.add(next.index);
-    render();
-    if (queue.length > 0) {
-      const nextFree = seats.findIndex(s => !s.taken && !s.blocked);
-      if (nextFree !== -1) setTimeout(processQueue, 300);
-    }
+    const newQueue = [...queue];
+    db.ref('/queue').set(newQueue);
+    db.ref(`/seats/${freeIdx}`).set({ taken: true, blocked: false, index: next.index, name: next.name, surname: next.surname });
   }
 
   // ============================================================
-  // ADMIN – CSV i RESET
+  // ADMIN
   // ============================================================
   function exportCSV() {
     let csv = 'Rząd;Miejsce;Indeks;Imię;Nazwisko\n';
@@ -392,7 +377,7 @@
       for (let c = 1; c <= COLS; c++) {
         const idx = seatId(r, c);
         const seat = seats[idx];
-        if (seat.taken && !seat.blocked) {
+        if (seat && seat.taken && !seat.blocked) {
           csv += `${r};${c};${seat.index};${seat.name};${seat.surname}\n`;
         }
       }
@@ -412,14 +397,12 @@
   function resetAll() {
     if (!confirm('Usunąć wszystkie rezerwacje?')) return;
     if (!confirm('Na pewno?')) return;
-    localStorage.removeItem('salaRezerwacjeData');
-    initSeats();
-    render();
+    db.ref('/').remove();
     alert('✅ Zresetowano!');
   }
 
   // ============================================================
-  // LOGOWANIE / WYLOGOWANIE
+  // LOGOWANIE
   // ============================================================
   function studentLogin() {
     const name = document.getElementById('loginName').value.trim();
@@ -434,7 +417,6 @@
     currentUser = { name, surname, index, isAdmin: false };
     showMainScreen();
     startTimer();
-    render();
   }
 
   function adminLogin() {
@@ -447,7 +429,6 @@
       showMainScreen();
       if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
       document.getElementById('timerDisplay').textContent = '';
-      render();
     } else {
       errorEl.textContent = '❌ Nieprawidłowy login lub hasło!';
     }
@@ -471,7 +452,6 @@
       adminPanel.classList.add('hidden');
       adminBadge.classList.add('hidden');
     }
-    saveSession();
   }
 
   function showLoginScreen() {
@@ -480,12 +460,7 @@
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
     document.getElementById('timerDisplay').textContent = '';
     currentUser = null;
-    localStorage.removeItem('salaSession');
     timeLeft = SESSION_TIMEOUT;
-  }
-
-  function saveSession() {
-    if (currentUser) localStorage.setItem('salaSession', JSON.stringify(currentUser));
   }
 
   function logout() {
@@ -500,7 +475,7 @@
   }
 
   // ============================================================
-  // TIMER (STUDENT)
+  // TIMER
   // ============================================================
   function startTimer() {
     if (timerInterval) clearInterval(timerInterval);
@@ -577,28 +552,6 @@
     document.getElementById('resetBtn').addEventListener('click', resetAll);
     document.getElementById('shareLinkBtn').addEventListener('click', copyLink);
     document.getElementById('qrBtn').addEventListener('click', showQR);
-
-    if (!loadState()) initSeats();
-
-    const savedSession = localStorage.getItem('salaSession');
-    if (savedSession) {
-      try {
-        const session = JSON.parse(savedSession);
-        if (session && session.index) {
-          const hasSeat = seats.some(s => s.taken && !s.blocked && s.index === session.index);
-          const inQueue = queue.some(item => item.index === session.index);
-          if (hasSeat || inQueue || session.isAdmin) {
-            currentUser = session;
-            showMainScreen();
-            if (!session.isAdmin) startTimer();
-            render();
-          } else {
-            localStorage.removeItem('salaSession');
-          }
-        }
-      } catch(e) { localStorage.removeItem('salaSession'); }
-    }
-    if (!currentUser) showLoginScreen();
   });
 </script>
 </body>
