@@ -42,6 +42,7 @@
     #queuePage .queue-status { background: #f8fafc; border-radius: 16px; padding: 20px; margin: 20px 0; }
     .waiting-animation { display: inline-block; animation: pulse 1.5s ease-in-out infinite; }
     @keyframes pulse { 0% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0.4; transform: scale(1); } }
+    .highlight-green { background: #22c55e !important; color: white !important; }
     
     #hall { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; padding: 12px 0; }
     .seat { aspect-ratio: 1/1; background: #22c55e; color: white; border: none; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.15s; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; min-height: 48px; }
@@ -116,7 +117,7 @@
         </div>
       </div>
       <button class="btn btn-danger" id="queueLeaveBtn">❌ Zrezygnuj z kolejki</button>
-      <p style="color:#94a3b8; font-size:13px; margin-top:16px;">Nie zamykaj tej strony – automatycznie wejdziesz do sali, gdy zwolni się miejsce</p>
+      <p style="color:#94a3b8; font-size:13px; margin-top:16px;">Nie zamykaj tej strony – gdy zwolni się miejsce, wejdziesz do sali</p>
     </div>
 
     <!-- STRONA SALI -->
@@ -173,7 +174,6 @@
     const BLOCKED_ROW = 1;
     const ADMIN_CREDENTIALS = { login: 'admin', password: 'admin123' };
     const SESSION_TIMEOUT = 100;
-    const MAX_USERS_IN_SESSION = 1; // Tylko 1 osoba na sali w danym momencie!
 
     // ============================================================
     // STAN
@@ -186,7 +186,8 @@
     let timeLeft = SESSION_TIMEOUT;
     let isInQueuePage = false;
     let queueCheckInterval = null;
-    let currentSessionUser = null; // Kto aktualnie jest na sali
+    let currentSessionUser = null;
+    let isWaitingForEntry = false; // Czy osoba z kolejki czeka na wejście
 
     // ============================================================
     // NASŁUCHIWANIE ZMIAN W CHMURZE
@@ -202,6 +203,10 @@
         render();
         if (isInQueuePage && currentUser && !currentUser.isAdmin) {
           checkQueueStatus();
+        }
+        // Sprawdzenie czy osoba z kolejki może wejść
+        if (isWaitingForEntry && currentUser && !currentUser.isAdmin) {
+          checkIfCanEnter();
         }
       } else {
         initSeats();
@@ -238,14 +243,12 @@
     function checkQueueStatus() {
       if (!currentUser || currentUser.isAdmin) return;
 
-      // Czy użytkownik ma już miejsce?
       const hasSeat = seats.some(s => s.taken && !s.blocked && s.index === currentUser.index);
       if (hasSeat) {
         goToMainScreen();
         return;
       }
 
-      // Czy jest w kolejce?
       const queueIndex = queue.findIndex(item => item.index === currentUser.index);
       if (queueIndex === -1) {
         logout();
@@ -254,9 +257,29 @@
 
       updateQueuePage(queueIndex);
 
-      // Jeśli jesteś pierwszy i nikt nie jest na sali -> wejdź!
+      // Sprawdzenie czy można wejść
+      checkIfCanEnter();
+    }
+
+    function checkIfCanEnter() {
+      if (!currentUser || currentUser.isAdmin) return;
+      if (isWaitingForEntry) return;
+
+      const queueIndex = queue.findIndex(item => item.index === currentUser.index);
+      if (queueIndex === -1) return;
+
+      // Jeśli jesteś pierwszy w kolejce i nikt nie jest na sali
       if (queueIndex === 0 && !currentSessionUser) {
-        enterHall();
+        // Wejdź na salę (użytkownik wybiera miejsce sam)
+        isWaitingForEntry = true;
+        db.ref('/currentSessionUser').set(currentUser.index);
+        // Usuń z kolejki
+        const newQueue = queue.filter(item => item.index !== currentUser.index);
+        db.ref('/queue').set(newQueue);
+        // Przejdź do sali
+        goToMainScreen();
+        alert('✅ Zwolniło się miejsce! Możesz teraz wybrać miejsce.');
+        isWaitingForEntry = false;
       }
     }
 
@@ -267,45 +290,12 @@
       document.getElementById('queueNumberDisplay').textContent = position;
       document.getElementById('queueTotalDisplay').textContent = total;
       document.getElementById('queueInfoDisplay').textContent =
-        position === 1 ? '🔔 Jesteś PIERWSZY! Czekaj na wejście do sali...' :
+        position === 1 && !currentSessionUser ? '🔔 Jesteś PIERWSZY! Za chwilę wejdziesz do sali...' :
+        position === 1 && currentSessionUser ? '⏳ Oczekiwanie na zwolnienie sali...' :
         `⏳ Oczekiwanie na wejście do sali...`;
 
       const freeSeats = seats.filter(s => !s.taken && !s.blocked).length;
       document.getElementById('queueFreeSeats').textContent = freeSeats;
-    }
-
-    // ============================================================
-    // WEJŚCIE NA SALĘ (dla pierwszego z kolejki)
-    // ============================================================
-    function enterHall() {
-      if (!currentUser || currentUser.isAdmin) return;
-      if (currentSessionUser) return; // Ktoś już jest na sali
-
-      // Ustaw, że ten użytkownik jest na sali
-      db.ref('/currentSessionUser').set(currentUser.index);
-      goToMainScreen();
-    }
-
-    // ============================================================
-    // OPUSZCZANIE SALI (zwalnianie miejsca dla kolejki)
-    // ============================================================
-    function leaveHall() {
-      if (!currentUser || currentUser.isAdmin) return;
-      
-      // Usuń z sesji
-      db.ref('/currentSessionUser').remove();
-      
-      // Jeśli użytkownik ma miejsce - zwolnij je
-      const userSeatIdx = seats.findIndex(s => s.taken && !s.blocked && s.index === currentUser.index);
-      if (userSeatIdx !== -1) {
-        db.ref(`/seats/${userSeatIdx}`).set({ taken: false, blocked: false, index: '', name: '', surname: '' });
-      }
-      
-      // Jeśli jest w kolejce - usuń
-      const newQueue = queue.filter(item => item.index !== currentUser.index);
-      db.ref('/queue').set(newQueue);
-      
-      logout();
     }
 
     // ============================================================
@@ -354,7 +344,7 @@
         if (currentUser && !currentUser.isAdmin) {
           checkQueueStatus();
         }
-      }, 1000);
+      }, 2000);
 
       setTimeout(() => checkQueueStatus(), 500);
     }
@@ -370,10 +360,10 @@
       currentUser = null;
       timeLeft = SESSION_TIMEOUT;
       isInQueuePage = false;
+      isWaitingForEntry = false;
     }
 
     function logout() {
-      // Usuń z sesji jeśli był na sali
       if (currentUser && !currentUser.isAdmin) {
         db.ref('/currentSessionUser').remove();
       }
@@ -384,6 +374,7 @@
       document.getElementById('loginError').textContent = '';
       if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
       if (queueCheckInterval) { clearInterval(queueCheckInterval); queueCheckInterval = null; }
+      isWaitingForEntry = false;
     }
 
     // ============================================================
@@ -485,13 +476,6 @@
         return;
       }
 
-      // Sprawdzenie czy jest w kolejce
-      if (queue.some(item => item.index === currentUser.index)) {
-        alert('⏳ Jesteś już w kolejce!');
-        goToQueuePage();
-        return;
-      }
-
       if (!confirm(`Czy na pewno chcesz zarezerwować to miejsce dla indeksu ${currentUser.index}?`)) return;
 
       db.ref(`/seats/${idx}`).set({
@@ -512,10 +496,10 @@
       alert('✅ Zarezerwowano!');
       processQueue();
       
-      // Wyloguj po rezerwacji (zwolnij miejsce dla innych)
+      // Wyloguj po rezerwacji
       setTimeout(() => {
         logout();
-      }, 3000);
+      }, 2000);
     }
 
     // ============================================================
@@ -539,20 +523,22 @@
     // ============================================================
     function processQueue() {
       if (queue.length === 0) return;
+      
+      // Sprawdź czy jest wolne miejsce
       const freeIdx = seats.findIndex(s => !s.taken && !s.blocked);
       if (freeIdx === -1) return;
 
+      // Weź pierwszą osobę z kolejki i daj jej wejść na salę
       const next = queue.shift();
       const newQueue = [...queue];
       db.ref('/queue').set(newQueue);
-      db.ref(`/seats/${freeIdx}`).set({
-        taken: true,
-        blocked: false,
-        index: next.index,
-        name: '',
-        surname: ''
-      });
-
+      
+      // Ustaw sesję dla tej osoby
+      db.ref('/currentSessionUser').set(next.index);
+      
+      alert(`🔔 Osoba z indeksem ${next.index} może teraz wejść na salę.`);
+      
+      // Jeśli są kolejne osoby w kolejce i wolne miejsca - kontynuuj
       if (newQueue.length > 0) {
         const nextFree = seats.findIndex(s => !s.taken && !s.blocked);
         if (nextFree !== -1) {
@@ -649,6 +635,8 @@
         showMainScreen();
         if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
         document.getElementById('timerDisplay').textContent = '';
+        // Odśwież dane
+        render();
       } else {
         errorEl.textContent = '❌ Nieprawidłowy login lub hasło!';
       }
@@ -695,7 +683,6 @@
           clearInterval(timerInterval);
           timerInterval = null;
           alert('⏰ Twój czas minął. Zostaniesz wylogowany.');
-          // Zwolnij sesję przed wylogowaniem
           if (currentUser && !currentUser.isAdmin) {
             db.ref('/currentSessionUser').remove();
           }
@@ -724,7 +711,6 @@
       const newQueue = queue.filter(item => item.index !== currentUser.index);
       db.ref('/queue').set(newQueue);
       
-      // Jeśli był pierwszy i zwolnił się, zwolnij sesję
       if (currentSessionUser === currentUser.index) {
         db.ref('/currentSessionUser').remove();
       }
