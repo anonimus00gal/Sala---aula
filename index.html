@@ -4,555 +4,897 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rezerwacja sali</title>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js">
+  </script>
+
   <style>
-    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
-    body { background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 16px; }
-    .container { width: 100%; max-width: 800px; background: white; border-radius: 24px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
-    h1 { text-align: center; margin: 0 0 4px; font-size: 26px; color: #1e293b; }
-    .sub { text-align: center; color: #64748b; margin: 0 0 20px; font-size: 14px; }
-    .login-box { padding: 8px 0; }
-    .login-box label { display: block; font-weight: 600; color: #1e293b; margin: 12px 0 4px; font-size: 14px; }
-    .login-box input { width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 16px; transition: 0.2s; }
-    .login-box input:focus { border-color: #3b82f6; outline: none; }
-    .btn { width: 100%; padding: 12px; border: none; border-radius: 40px; font-weight: 600; font-size: 16px; cursor: pointer; transition: 0.2s; margin-top: 12px; }
-    .btn-success { background: #22c55e; color: white; }
-    .btn-success:hover { background: #16a34a; }
-    .btn-admin { background: #8b5cf6; color: white; }
-    .btn-admin:hover { background: #7c3aed; }
-    .btn-primary { background: #3b82f6; color: white; }
-    .btn-primary:hover { background: #2563eb; }
-    .btn-danger { background: #ef4444; color: white; }
-    .btn-danger:hover { background: #dc2626; }
-    .btn-warning { background: #f59e0b; color: white; }
-    .btn-warning:hover { background: #d97706; }
-    .hidden { display: none !important; }
-    .login-divider { border: none; border-top: 2px dashed #e2e8f0; margin: 20px 0; }
-    .login-section-title { text-align: center; font-weight: 700; color: #64748b; font-size: 14px; margin: 8px 0 4px; }
-    #hall { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; padding: 12px 0; }
-    .seat { aspect-ratio: 1/1; background: #22c55e; color: white; border: none; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.15s; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; min-height: 48px; }
-    .seat:hover:not(.taken):not(.blocked) { background: #16a34a; transform: scale(1.04); }
-    .seat.taken { background: #ef4444; cursor: pointer; }
-    .seat.taken:hover { opacity: 0.8; }
-    .seat.blocked { background: #cbd5e1; cursor: not-allowed; color: #475569; font-size: 18px; }
-    .seat .index-nr { font-size: 15px; font-weight: 700; }
-    .seat .tooltip { display: none; position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; white-space: nowrap; z-index: 10; }
-    .seat.taken:hover .tooltip { display: block; }
-    .row-label { grid-column: 1 / -1; font-weight: 700; color: #1e293b; background: #f1f5f9; padding: 4px 10px; border-radius: 8px; text-align: center; margin: 2px 0; font-size: 13px; }
-    .row-label.blocked-row { background: #e2e8f0; color: #64748b; }
-    #queue-section { background: #f8fafc; padding: 12px 16px; border-radius: 16px; margin: 12px 0; }
-    #queue-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 6px 0; }
-    #queue-list li { background: #e2e8f0; padding: 4px 14px; border-radius: 30px; font-size: 13px; }
-    #queue-list li.highlight { background: #3b82f6; color: white; font-weight: 700; }
-    .info-badge { display: inline-block; padding: 3px 14px; border-radius: 30px; font-size: 13px; margin: 3px; }
-    .badge-blue { background: #3b82f6; color: white; }
-    .badge-green { background: #22c55e; color: white; }
-    .badge-red { background: #ef4444; color: white; }
-    #status { text-align: center; margin: 4px 0; }
-    .admin-panel { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
-    .admin-panel .btn { flex: 1; min-width: 100px; margin-top: 0; }
-    .user-info { background: #eff6ff; padding: 10px 16px; border-radius: 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
-    .user-info .name { font-weight: 600; color: #1e293b; }
-    .user-info .logout-btn { background: #ef4444; color: white; border: none; padding: 6px 18px; border-radius: 30px; cursor: pointer; font-size: 13px; }
-    .share-box { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
-    .share-box .btn { flex: 1; min-width: 100px; margin-top: 0; font-size: 14px; padding: 10px; }
-    .footer-note { color: #94a3b8; font-size: 12px; text-align: center; margin-top: 16px; }
-    .error-msg { color: #ef4444; font-size: 14px; margin-top: 8px; text-align: center; }
-    .queue-position { background: #1e293b; color: white; padding: 6px 16px; border-radius: 40px; font-weight: 600; font-size: 14px; display: inline-block; margin: 4px 0; }
-    .timer { background: #f59e0b; color: white; padding: 4px 14px; border-radius: 40px; font-weight: 700; font-size: 14px; display: inline-block; }
-    @media (max-width: 500px) { .container { padding: 16px; } .seat { font-size: 10px; min-height: 40px; } }
+    * {
+      box-sizing: border-box;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    body {
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 16px;
+    }
+    .container {
+      width: 100%;
+      max-width: 800px;
+      background: white;
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    }
+    h1 {
+      text-align: center;
+      margin: 0 0 4px;
+      font-size: 26px;
+      color: #1e293b;
+    }
+    .sub {
+      text-align: center;
+      color: #64748b;
+      margin: 0 0 20px;
+      font-size: 14px;
+    }
+    .login-box {
+      padding: 8px 0;
+    }
+    .login-box label {
+      display: block;
+      font-weight: 600;
+      color: #1e293b;
+      margin: 12px 0 4px;
+      font-size: 14px;
+    }
+    .login-box input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 16px;
+      transition: 0.2s;
+    }
+    .login-box input:focus {
+      border-color: #3b82f6;
+      outline: none;
+    }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.2s;
+      margin-top: 12px;
+    }
+    .btn-success {
+      background: #22c55e;
+      color: white;
+    }
+    .btn-success:hover {
+      background: #16a34a;
+    }
+    .btn-admin {
+      background: #8b5cf6;
+      color: white;
+    }
+    .btn-admin:hover {
+      background: #7c3aed;
+    }
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+    .btn-warning {
+      background: #f59e0b;
+      color: white;
+    }
+    .btn-warning:hover {
+      background: #d97706;
+    }
+    .hidden {
+      display: none !important;
+    }
+    .login-divider {
+      border: none;
+      border-top: 2px dashed #e2e8f0;
+      margin: 20px 0;
+    }
+    .login-section-title {
+      text-align: center;
+      font-weight: 700;
+      color: #64748b;
+      font-size: 14px;
+      margin: 8px 0 4px;
+    }
+    #hall {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
+      padding: 12px 0;
+    }
+    .seat {
+      aspect-ratio: 1/1;
+      background: #22c55e;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.15s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      min-height: 48px;
+    }
+    .seat:hover:not(.taken):not(.blocked) {
+      background: #16a34a;
+      transform: scale(1.04);
+    }
+    .seat.taken {
+      background: #ef4444;
+      cursor: default;
+    }
+    .seat.taken.admin-hover:hover {
+      opacity: 0.7;
+      cursor: pointer;
+    }
+    .seat.blocked {
+      background: #cbd5e1;
+      cursor: not-allowed;
+      color: #475569;
+      font-size: 18px;
+    }
+    .seat .index-nr {
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .seat .tooltip {
+      display: none;
+      position: absolute;
+      bottom: 110%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      white-space: nowrap;
+      z-index: 10;
+    }
+    .seat.taken:hover .tooltip {
+      display: block;
+    }
+    .row-label {
+      grid-column: 1 / -1;
+      font-weight: 700;
+      color: #1e293b;
+      background: #f1f5f9;
+      padding: 4px 10px;
+      border-radius: 8px;
+      text-align: center;
+      margin: 2px 0;
+      font-size: 13px;
+    }
+    .row-label.blocked-row {
+      background: #e2e8f0;
+      color: #64748b;
+    }
+    #queue-section {
+      background: #f8fafc;
+      padding: 12px 16px;
+      border-radius: 16px;
+      margin: 12px 0;
+    }
+    #queue-list {
+      list-style: none;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin: 6px 0;
+    }
+    #queue-list li {
+      background: #e2e8f0;
+      padding: 4px 14px;
+      border-radius: 30px;
+      font-size: 13px;
+    }
+    #queue-list li.highlight {
+      background: #3b82f6;
+      color: white;
+      font-weight: 700;
+    }
+    .info-badge {
+      display: inline-block;
+      padding: 3px 14px;
+      border-radius: 30px;
+      font-size: 13px;
+      margin: 3px;
+    }
+    .badge-blue {
+      background: #3b82f6;
+      color: white;
+    }
+    .badge-green {
+      background: #22c55e;
+      color: white;
+    }
+    .badge-red {
+      background: #ef4444;
+      color: white;
+    }
+    #status {
+      text-align: center;
+      margin: 4px 0;
+    }
+    .admin-panel {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 12px 0 4px;
+    }
+    .admin-panel .btn {
+      flex: 1;
+      min-width: 100px;
+      margin-top: 0;
+    }
+    .user-info {
+      background: #eff6ff;
+      padding: 10px 16px;
+      border-radius: 14px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .user-info .name {
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .user-info .logout-btn {
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 6px 18px;
+      border-radius: 30px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .share-box {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 12px 0 4px;
+    }
+    .share-box .btn {
+      flex: 1;
+      min-width: 100px;
+      margin-top: 0;
+      font-size: 14px;
+      padding: 10px;
+    }
+    .footer-note {
+      color: #94a3b8;
+      font-size: 12px;
+      text-align: center;
+      margin-top: 16px;
+    }
+    .error-msg {
+      color: #ef4444;
+      font-size: 14px;
+      margin-top: 8px;
+      text-align: center;
+    }
+    .queue-position {
+      background: #1e293b;
+      color: white;
+      padding: 6px 16px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 14px;
+      display: inline-block;
+      margin: 4px 0;
+    }
+    .timer {
+      background: #f59e0b;
+      color: white;
+      padding: 4px 14px;
+      border-radius: 40px;
+      font-weight: 700;
+      font-size: 14px;
+      display: inline-block;
+    }
+    @media (max-width: 500px) {
+      .container {
+        padding: 16px;
+      }
+      .seat {
+        font-size: 10px;
+        min-height: 40px;
+      }
+    }
   </style>
 </head>
 <body>
-<div class="container" id="app">
-  <h1>🏛️ Rezerwacja sali</h1>
-  <p class="sub">14 rzędów × 8 miejsc – rząd 1 zablokowany</p>
+  <div class="container" id="app">
+    <h1>🏛️ Rezerwacja sali</h1>
+    <p class="sub">14 rzędów × 8 miejsc – rząd 1 zablokowany</p>
 
-  <div id="loginSection" class="login-box">
-    <div class="login-section-title">🎓 LOGOWANIE STUDENTA</div>
-    <label>👤 Imię</label>
-    <input type="text" id="loginName" placeholder="Wpisz imię">
-    <label>📛 Nazwisko</label>
-    <input type="text" id="loginSurname" placeholder="Wpisz nazwisko">
-    <label>🎓 Numer indeksu</label>
-    <input type="text" id="loginIndex" placeholder="Wpisz numer indeksu">
-    <button class="btn btn-success" id="studentLoginBtn">✅ Wejdź jako student</button>
-    <hr class="login-divider">
-    <div class="login-section-title">👑 LOGOWANIE ADMINISTRATORA</div>
-    <label>🔑 Login</label>
-    <input type="text" id="adminLogin" placeholder="Login">
-    <label>🔒 Hasło</label>
-    <input type="password" id="adminPassword" placeholder="Hasło">
-    <button class="btn btn-admin" id="adminLoginBtn">👑 Wejdź jako administrator</button>
-    <div id="loginError" class="error-msg"></div>
-  </div>
-
-  <div id="mainSection" class="hidden">
-    <div class="user-info">
-      <span class="name" id="userDisplay">👤 </span>
-      <span id="timerDisplay" class="timer"></span>
-      <button class="logout-btn" id="logoutBtn">Wyloguj</button>
+    <!-- LOGOWANIE -->
+    <div id="loginSection" class="login-box">
+      <div class="login-section-title">🎓 LOGOWANIE STUDENTA</div>
+      <label>👤 Imię</label>
+      <input type="text" id="loginName" placeholder="Wpisz imię">
+      <label>📛 Nazwisko</label>
+      <input type="text" id="loginSurname" placeholder="Wpisz nazwisko">
+      <label>🎓 Numer indeksu</label>
+      <input type="text" id="loginIndex" placeholder="Wpisz numer indeksu">
+      <button class="btn btn-success" id="studentLoginBtn">✅ Wejdź jako student</button>
+      <hr class="login-divider">
+      <div class="login-section-title">👑 LOGOWANIE ADMINISTRATORA</div>
+      <label>🔑 Login</label>
+      <input type="text" id="adminLogin" placeholder="Login">
+      <label>🔒 Hasło</label>
+      <input type="password" id="adminPassword" placeholder="Hasło">
+      <button class="btn btn-admin" id="adminLoginBtn">👑 Wejdź jako administrator</button>
+      <div id="loginError" class="error-msg"></div>
     </div>
-    <div id="adminBadge" class="hidden" style="background:#fef9c3; padding:5px 12px; border-radius:20px; text-align:center; font-weight:700; margin-bottom:12px;">⭐ Jesteś administratorem</div>
-    <div id="queuePositionDisplay" style="text-align:center; margin:4px 0;"></div>
-    <div id="hall"></div>
-    <div id="queue-section">
-      <div id="status">
-        <span class="info-badge badge-blue">👥 Kolejka: <span id="queue-count">0</span></span>
-        <span class="info-badge badge-green">📌 Zajęte: <span id="occupied-count">0</span> / 112</span>
+
+    <!-- STRONA GŁÓWNA -->
+    <div id="mainSection" class="hidden">
+      <div class="user-info">
+        <span class="name" id="userDisplay">👤 </span>
+        <span id="timerDisplay" class="timer"></span>
+        <button class="logout-btn" id="logoutBtn">Wyloguj</button>
       </div>
-      <ul id="queue-list"></ul>
+      <div id="adminBadge" class="hidden" style="background:#fef9c3; padding:5px 12px; border-radius:20px; text-align:center; font-weight:700; margin-bottom:12px;">⭐ Jesteś administratorem</div>
+      <div id="queuePositionDisplay" style="text-align:center; margin:4px 0;"></div>
+      <div id="hall"></div>
+      <div id="queue-section">
+        <div id="status">
+          <span class="info-badge badge-blue">👥 Kolejka: <span id="queue-count">0</span></span>
+          <span class="info-badge badge-green">📌 Zajęte: <span id="occupied-count">0</span> / 112</span>
+        </div>
+        <ul id="queue-list"></ul>
+      </div>
+      <div id="adminPanel" class="hidden admin-panel">
+        <button class="btn btn-success" id="exportBtn">📥 Pobierz CSV</button>
+        <button class="btn btn-danger" id="resetBtn">🗑️ Reset</button>
+      </div>
+      <div class="share-box">
+        <button class="btn btn-primary" id="shareLinkBtn">🔗 Skopiuj link</button>
+        <button class="btn btn-warning" id="qrBtn">📱 Kod QR</button>
+      </div>
+      <p class="footer-note">Dane zapisują się w chmurze – wszyscy widzą te same rezerwacje</p>
     </div>
-    <div id="adminPanel" class="hidden admin-panel">
-      <button class="btn btn-success" id="exportBtn">📥 Pobierz CSV</button>
-      <button class="btn btn-danger" id="resetBtn">🗑️ Reset</button>
-    </div>
-    <div class="share-box">
-      <button class="btn btn-primary" id="shareLinkBtn">🔗 Skopiuj link</button>
-      <button class="btn btn-warning" id="qrBtn">📱 Kod QR</button>
-    </div>
-    <p class="footer-note">Dane zapisują się w chmurze – wszyscy widzą te same rezerwacje</p>
   </div>
-</div>
 
-<script>
-  // ============================================================
-  // 🔥 KONFIGURACJA FIREBASE (TWOJE DANE)
-  // ============================================================
-  const firebaseConfig = {
-    apiKey: "AIzaSyDNnpV8ETND_vIGtDnMhHmpcG-CbZRZg9k",
-    authDomain: "rezerwacja-sali-3998f.firebaseapp.com",
-    databaseURL: "https://rezerwacja-sali-3998f-default-rtdb.europe-west1.firebasedatabase.app/",
-    projectId: "rezerwacja-sali-3998f",
-    storageBucket: "rezerwacja-sali-3998f.firebasestorage.app",
-    messagingSenderId: "827019667859",
-    appId: "1:827019667859:web:aa281801dae27788da2066",
-    measurementId: "G-BRBLPTDWHX"
-  };
+  <script>
+    // ============================================================
+    // 🔥 KONFIGURACJA FIREBASE (Wypełnij swoimi danymi)
+    // ============================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyDNnpV8ETND_vIGtDnMhHmpcG-CbZRZg9k",
+      authDomain: "rezerwacja-sali-3998f.firebaseapp.com",
+      databaseURL: "https://rezerwacja-sali-3998f-default-rtdb.europe-west1.firebasedatabase.app/",
+      projectId: "rezerwacja-sali-3998f",
+      storageBucket: "rezerwacja-sali-3998f.firebasestorage.app",
+      messagingSenderId: "827019667859",
+      appId: "1:827019667859:web:aa281801dae27788da2066",
+      measurementId: "G-BRBLPTDWHX"
+    };
 
-  // Inicjalizacja Firebase
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-  // ============================================================
-  // KONFIGURACJA SALI
-  // ============================================================
-  const ROWS = 14;
-  const COLS = 8;
-  const BLOCKED_ROW = 1;
-  const ADMIN_CREDENTIALS = { login: 'admin', password: 'admin123' };
-  const SESSION_TIMEOUT = 100;
+    // ============================================================
+    // KONFIGURACJA
+    // ============================================================
+    const ROWS = 14;
+    const COLS = 8;
+    const BLOCKED_ROW = 1;
+    const ADMIN_CREDENTIALS = { login: 'admin', password: 'admin123' };
+    const SESSION_TIMEOUT = 100;
 
-  // ============================================================
-  // STAN
-  // ============================================================
-  let seats = [];
-  let queue = [];
-  let usedIndices = new Set();
-  let currentUser = null;
-  let timerInterval = null;
-  let timeLeft = SESSION_TIMEOUT;
+    // ============================================================
+    // STAN
+    // ============================================================
+    let seats = [];
+    let queue = [];
+    let usedIndices = new Set();
+    let currentUser = null;
+    let timerInterval = null;
+    let timeLeft = SESSION_TIMEOUT;
 
-  // ============================================================
-  // NASŁUCHIWANIE ZMIAN W CHMURZE (REAL TIME)
-  // ============================================================
-  const stateRef = db.ref('/');
-  stateRef.on('value', (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-      seats = data.seats || [];
-      queue = data.queue || [];
-      updateUsedIndices();
-      render();
-    } else {
-      initSeats();
+    // ============================================================
+    // NASŁUCHIWANIE ZMIAN W CHMURZE (REAL TIME)
+    // ============================================================
+    const stateRef = db.ref('/');
+    stateRef.on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        seats = data.seats || [];
+        queue = data.queue || [];
+        updateUsedIndices();
+        render();
+      } else {
+        initSeats();
+      }
+    });
+
+    function updateUsedIndices() {
+      usedIndices = new Set();
+      seats.forEach(s => { if (s.taken && !s.blocked && s.index) usedIndices.add(s.index); });
     }
-  });
 
-  function updateUsedIndices() {
-    usedIndices = new Set();
-    seats.forEach(s => { if (s.taken && !s.blocked && s.index) usedIndices.add(s.index); });
-  }
+    function initSeats() {
+      const newSeats = [];
+      for (let r = 1; r <= ROWS; r++) {
+        for (let c = 1; c <= COLS; c++) {
+          const isBlocked = (r === BLOCKED_ROW);
+          newSeats.push({
+            taken: isBlocked ? true : false,
+            blocked: isBlocked,
+            index: isBlocked ? 'X' : '',
+            name: isBlocked ? 'Zablokowane' : '',
+            surname: isBlocked ? '' : ''
+          });
+        }
+      }
+      db.ref('/').set({ seats: newSeats, queue: [] });
+    }
 
-  function initSeats() {
-    const newSeats = [];
-    for (let r = 1; r <= ROWS; r++) {
-      for (let c = 1; c <= COLS; c++) {
-        const isBlocked = (r === BLOCKED_ROW);
-        newSeats.push({
-          taken: isBlocked ? true : false,
-          blocked: isBlocked,
-          index: isBlocked ? 'X' : '',
-          name: isBlocked ? 'Zablokowane' : '',
-          surname: isBlocked ? '' : ''
+    function seatId(row, col) { return (row - 1) * COLS + (col - 1); }
+
+    // ============================================================
+    // RENDER
+    // ============================================================
+    function render() {
+      const hall = document.getElementById('hall');
+      if (!hall) return;
+      hall.innerHTML = '';
+
+      for (let r = 1; r <= ROWS; r++) {
+        const label = document.createElement('div');
+        label.className = 'row-label' + (r === BLOCKED_ROW ? ' blocked-row' : '');
+        label.textContent = r === BLOCKED_ROW ? `Rząd ${r} 🔒 (zablokowany)` : `Rząd ${r}`;
+        hall.appendChild(label);
+
+        for (let c = 1; c <= COLS; c++) {
+          const idx = seatId(r, c);
+          const seat = seats[idx] || { taken: false, blocked: false, index: '', name: '', surname: '' };
+          const btn = document.createElement('button');
+          btn.className = 'seat';
+
+          if (seat.blocked) {
+            btn.classList.add('blocked');
+            btn.textContent = '🚫';
+          } else if (seat.taken) {
+            btn.classList.add('taken');
+            if (currentUser && currentUser.isAdmin) {
+              btn.classList.add('admin-hover');
+              btn.addEventListener('click', () => adminDeleteSeat(idx));
+            }
+            const spanIdx = document.createElement('span');
+            spanIdx.className = 'index-nr';
+            spanIdx.textContent = seat.index || '?';
+            btn.appendChild(spanIdx);
+            const tooltip = document.createElement('span');
+            tooltip.className = 'tooltip';
+            tooltip.textContent = `${seat.name} ${seat.surname}`;
+            btn.appendChild(tooltip);
+          } else {
+            btn.textContent = `${r}-${c}`;
+            btn.addEventListener('click', () => handleSeatClick(idx));
+          }
+          hall.appendChild(btn);
+        }
+      }
+
+      const occupied = seats.filter(s => s.taken && !s.blocked).length;
+      document.getElementById('queue-count').textContent = queue.length;
+      document.getElementById('occupied-count').textContent = occupied;
+      updateQueuePosition();
+
+      const list = document.getElementById('queue-list');
+      list.innerHTML = '';
+      if (queue.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = 'Kolejka pusta';
+        li.style.background = 'transparent';
+        li.style.color = '#94a3b8';
+        list.appendChild(li);
+      } else {
+        queue.forEach((item, i) => {
+          const li = document.createElement('li');
+          const pos = i + 1;
+          let text = `${pos}. ${item.name} ${item.surname} (${item.index})`;
+          if (currentUser && !currentUser.isAdmin && item.index === currentUser.index) {
+            li.className = 'highlight';
+            text = `👉 ${text} ← TY`;
+          }
+          li.textContent = text;
+          list.appendChild(li);
         });
       }
     }
-    db.ref('/').set({ seats: newSeats, queue: [] });
-  }
 
-  function seatId(row, col) { return (row - 1) * COLS + (col - 1); }
+    function updateQueuePosition() {
+      const display = document.getElementById('queuePositionDisplay');
+      if (!display) return;
+      if (!currentUser || currentUser.isAdmin) { display.innerHTML = ''; return; }
 
-  // ============================================================
-  // RENDER
-  // ============================================================
-  function render() {
-    const hall = document.getElementById('hall');
-    if (!hall) return;
-    hall.innerHTML = '';
-    for (let r = 1; r <= ROWS; r++) {
-      const label = document.createElement('div');
-      label.className = 'row-label' + (r === BLOCKED_ROW ? ' blocked-row' : '');
-      label.textContent = r === BLOCKED_ROW ? `Rząd ${r} 🔒 (zablokowany)` : `Rząd ${r}`;
-      hall.appendChild(label);
-      for (let c = 1; c <= COLS; c++) {
-        const idx = seatId(r, c);
-        const seat = seats[idx] || { taken: false, blocked: false, index: '', name: '', surname: '' };
-        const btn = document.createElement('button');
-        btn.className = 'seat';
-        if (seat.blocked) {
-          btn.classList.add('blocked');
-          btn.textContent = '🚫';
-        } else if (seat.taken) {
-          btn.classList.add('taken');
-          const spanIdx = document.createElement('span');
-          spanIdx.className = 'index-nr';
-          spanIdx.textContent = seat.index || '?';
-          btn.appendChild(spanIdx);
-          const tooltip = document.createElement('span');
-          tooltip.className = 'tooltip';
-          tooltip.textContent = `${seat.name} ${seat.surname}`;
-          btn.appendChild(tooltip);
-          if (currentUser && !currentUser.isAdmin && seat.index === currentUser.index) {
-            btn.addEventListener('click', () => releaseSeat(idx));
-          }
-        } else {
-          btn.textContent = `${r}-${c}`;
-          btn.addEventListener('click', () => handleSeatClick(idx));
-        }
-        hall.appendChild(btn);
+      // Sprawdzenie czy użytkownik ma już miejsce
+      const hasSeat = seats.some(s => s.taken && !s.blocked && s.index === currentUser.index);
+      if (hasSeat) {
+        display.innerHTML = '<span class="queue-position" style="background:#22c55e;">✅ Masz już zarezerwowane miejsce!</span>';
+        return;
       }
-    }
-    const occupied = seats.filter(s => s.taken && !s.blocked).length;
-    document.getElementById('queue-count').textContent = queue.length;
-    document.getElementById('occupied-count').textContent = occupied;
-    updateQueuePosition();
-    const list = document.getElementById('queue-list');
-    list.innerHTML = '';
-    if (queue.length === 0) {
-      const li = document.createElement('li');
-      li.textContent = 'Kolejka pusta';
-      li.style.background = 'transparent';
-      li.style.color = '#94a3b8';
-      list.appendChild(li);
-    } else {
-      queue.forEach((item, i) => {
-        const li = document.createElement('li');
-        const pos = i + 1;
-        let text = `${pos}. ${item.name} ${item.surname} (${item.index})`;
-        if (currentUser && !currentUser.isAdmin && item.index === currentUser.index) {
-          li.className = 'highlight';
-          text = `👉 ${text} ← TY`;
-        }
-        li.textContent = text;
-        list.appendChild(li);
-      });
-    }
-  }
 
-  function updateQueuePosition() {
-    const display = document.getElementById('queuePositionDisplay');
-    if (!display) return;
-    if (!currentUser || currentUser.isAdmin) { display.innerHTML = ''; return; }
-    const hasSeat = seats.some(s => s.taken && !s.blocked && s.index === currentUser.index);
-    if (hasSeat) {
-      display.innerHTML = '<span class="queue-position" style="background:#22c55e;">✅ Masz już zarezerwowane miejsce!</span>';
-      return;
+      // Sprawdzenie czy jest w kolejce
+      const pos = queue.findIndex(item => item.index === currentUser.index);
+      if (pos === -1) {
+        // Jeśli nie ma miejsca i nie jest w kolejce – pokazujemy info
+        display.innerHTML = '<span class="queue-position" style="background:#f59e0b;">📌 Nie masz miejsca ani nie czekasz w kolejce</span>';
+        return;
+      }
+
+      const position = pos + 1;
+      const total = queue.length;
+      let msg = `⏳ Jesteś ${position}. w kolejce (na ${total} osób)`;
+      if (position === 1) msg = '🔔 Jesteś PIERWSZY w kolejce! Czekaj na wolne miejsce.';
+      display.innerHTML = `<span class="queue-position">${msg}</span>`;
     }
-    const pos = queue.findIndex(item => item.index === currentUser.index);
-    if (pos === -1) { display.innerHTML = ''; return; }
-    const position = pos + 1;
-    const total = queue.length;
-    let msg = `⏳ Jesteś ${position}. w kolejce (na ${total} osób)`;
-    if (position === 1) msg = '🔔 Jesteś PIERWSZY w kolejce! Czekaj na wolne miejsce.';
-    display.innerHTML = `<span class="queue-position">${msg}</span>`;
-  }
 
-  // ============================================================
-  // REZERWACJA
-  // ============================================================
-  function handleSeatClick(idx) {
-    const seat = seats[idx];
-    if (seat.taken || seat.blocked || !currentUser) return;
+    // ============================================================
+    // REZERWACJA
+    // ============================================================
+    function handleSeatClick(idx) {
+      const seat = seats[idx];
+      if (seat.taken || seat.blocked || !currentUser) return;
 
-    if (currentUser.isAdmin) {
-      const data = promptForData();
-      if (!data) return;
-      if (usedIndices.has(data.index)) { alert('❌ Ten indeks ma już miejsce!'); return; }
+      // ADMIN – rezerwuje dla kogoś
+      if (currentUser.isAdmin) {
+        const data = promptForData();
+        if (!data) return;
+        if (usedIndices.has(data.index)) { alert('❌ Ten indeks ma już miejsce!'); return; }
+        if (!confirm(`Czy na pewno chcesz zarezerwować miejsce dla ${data.name} ${data.surname} (${data.index})?`)) return;
+
+        const seatRef = db.ref(`/seats/${idx}`);
+        seatRef.transaction((current) => {
+          if (current === null) return { taken: true, blocked: false, index: data.index, name: data.name, surname: data
+              .surname };
+          if (current.taken) return;
+          return { taken: true, blocked: false, index: data.index, name: data.name, surname: data.surname };
+        });
+        alert('✅ Zarezerwowano!');
+        processQueue();
+        return;
+      }
+
+      // STUDENT – sprawdzenie czy ma już miejsce
+      if (usedIndices.has(currentUser.index)) {
+        alert('❌ Masz już zarezerwowane miejsce! Nie możesz zarezerwować kolejnego.');
+        return;
+      }
+
+      // Sprawdzenie czy jest w kolejce
+      if (queue.some(item => item.index === currentUser.index)) {
+        alert('⏳ Jesteś już w kolejce! Czekaj na zwolnienie miejsca.');
+        return;
+      }
+
+      // Jeśli jest kolejka – dodajemy na koniec
+      if (queue.length > 0) {
+        if (!confirm(`Czy na pewno chcesz dołączyć do kolejki? (obecnie ${queue.length} osób czeka)`)) return;
+        const newQueue = [...queue, { index: currentUser.index, name: currentUser.name, surname: currentUser.surname }];
+        db.ref('/queue').set(newQueue);
+        alert(`⏳ Dodano do kolejki! Twoja pozycja: ${newQueue.length}`);
+        return;
+      }
+
+      // Kolejka pusta – pytanie o potwierdzenie
+      if (!confirm(`Czy na pewno chcesz zarezerwować to miejsce dla ${currentUser.name} ${currentUser.surname}?`)) return;
+
       const seatRef = db.ref(`/seats/${idx}`);
       seatRef.transaction((current) => {
-        if (current === null) return { taken: true, blocked: false, index: data.index, name: data.name, surname: data.surname };
+        if (current === null) return { taken: true, blocked: false, index: currentUser.index, name: currentUser.name,
+          surname: currentUser.surname };
         if (current.taken) return;
-        return { taken: true, blocked: false, index: data.index, name: data.name, surname: data.surname };
+        return { taken: true, blocked: false, index: currentUser.index, name: currentUser.name, surname: currentUser
+            .surname };
       });
       alert('✅ Zarezerwowano!');
       processQueue();
-      return;
     }
 
-    if (usedIndices.has(currentUser.index)) {
-      if (confirm('Masz już miejsce. Czy chcesz przenieść rezerwację na to nowe miejsce?')) {
-        const oldIdx = seats.findIndex(s => s.taken && !s.blocked && s.index === currentUser.index);
-        if (oldIdx !== -1) {
-          db.ref(`/seats/${oldIdx}`).set({ taken: false, blocked: false, index: '', name: '', surname: '' });
-        }
-        const seatRef = db.ref(`/seats/${idx}`);
-        seatRef.set({ taken: true, blocked: false, index: currentUser.index, name: currentUser.name, surname: currentUser.surname });
-        alert('✅ Przeniesiono rezerwację!');
-        return;
-      }
-      return;
-    }
+    // ============================================================
+    // ADMIN – USUWANIE REZERWACJI
+    // ============================================================
+    function adminDeleteSeat(idx) {
+      if (!currentUser || !currentUser.isAdmin) return;
+      const seat = seats[idx];
+      if (!seat.taken || seat.blocked) return;
 
-    if (queue.some(item => item.index === currentUser.index)) {
-      alert('⏳ Jesteś już w kolejce!');
-      return;
-    }
+      if (!confirm(`⚠️ Czy na pewno chcesz USUNĄĆ rezerwację dla ${seat.name} ${seat.surname} (${seat.index})?`)) return;
+      if (!confirm(`To działanie jest nieodwracalne. Kontynuować?`)) return;
 
-    if (queue.length > 0) {
-      const newQueue = [...queue, { index: currentUser.index, name: currentUser.name, surname: currentUser.surname }];
-      db.ref('/queue').set(newQueue);
-      alert('⏳ Dodano do kolejki!');
-      return;
-    }
-
-    const seatRef = db.ref(`/seats/${idx}`);
-    seatRef.transaction((current) => {
-      if (current === null) return { taken: true, blocked: false, index: currentUser.index, name: currentUser.name, surname: currentUser.surname };
-      if (current.taken) return;
-      return { taken: true, blocked: false, index: currentUser.index, name: currentUser.name, surname: currentUser.surname };
-    });
-    alert('✅ Zarezerwowano!');
-    processQueue();
-  }
-
-  function releaseSeat(idx) {
-    if (!currentUser || currentUser.isAdmin) return;
-    const seat = seats[idx];
-    if (!seat.taken || seat.index !== currentUser.index) return;
-    if (confirm('Czy chcesz zwolnić to miejsce?')) {
       db.ref(`/seats/${idx}`).set({ taken: false, blocked: false, index: '', name: '', surname: '' });
-      alert('✅ Miejsce zwolnione.');
+      alert('✅ Rezerwacja usunięta!');
       processQueue();
     }
-  }
 
-  function promptForData() {
-    const name = prompt('Imię osoby:');
-    if (!name || name.trim() === '') return null;
-    const surname = prompt('Nazwisko osoby:');
-    if (!surname || surname.trim() === '') return null;
-    const index = prompt('Numer indeksu:');
-    if (!index || index.trim() === '') return null;
-    return { index: index.trim(), name: name.trim(), surname: surname.trim() };
-  }
+    // ============================================================
+    // PROCESOWANIE KOLEJKI
+    // ============================================================
+    function processQueue() {
+      if (queue.length === 0) return;
+      const freeIdx = seats.findIndex(s => !s.taken && !s.blocked);
+      if (freeIdx === -1) return;
 
-  function processQueue() {
-    if (queue.length === 0) return;
-    const freeIdx = seats.findIndex(s => !s.taken && !s.blocked);
-    if (freeIdx === -1) return;
-    const next = queue.shift();
-    const newQueue = [...queue];
-    db.ref('/queue').set(newQueue);
-    db.ref(`/seats/${freeIdx}`).set({ taken: true, blocked: false, index: next.index, name: next.name, surname: next.surname });
-  }
+      const next = queue.shift();
+      const newQueue = [...queue];
+      db.ref('/queue').set(newQueue);
+      db.ref(`/seats/${freeIdx}`).set({ taken: true, blocked: false, index: next.index, name: next.name, surname: next
+          .surname });
 
-  // ============================================================
-  // ADMIN
-  // ============================================================
-  function exportCSV() {
-    let csv = 'Rząd;Miejsce;Indeks;Imię;Nazwisko\n';
-    for (let r = 1; r <= ROWS; r++) {
-      for (let c = 1; c <= COLS; c++) {
-        const idx = seatId(r, c);
-        const seat = seats[idx];
-        if (seat && seat.taken && !seat.blocked) {
-          csv += `${r};${c};${seat.index};${seat.name};${seat.surname}\n`;
+      // Jeśli są jeszcze osoby w kolejce i wolne miejsca – kontynuujemy
+      if (newQueue.length > 0) {
+        const nextFree = seats.findIndex(s => !s.taken && !s.blocked);
+        if (nextFree !== -1) {
+          setTimeout(processQueue, 500);
         }
       }
     }
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.href = url;
-    link.download = `rezerwacje_${new Date().toISOString().slice(0,10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    alert('✅ CSV pobrany!');
-  }
 
-  function resetAll() {
-    if (!confirm('Usunąć wszystkie rezerwacje?')) return;
-    if (!confirm('Na pewno?')) return;
-    db.ref('/').remove();
-    alert('✅ Zresetowano!');
-  }
-
-  // ============================================================
-  // LOGOWANIE
-  // ============================================================
-  function studentLogin() {
-    const name = document.getElementById('loginName').value.trim();
-    const surname = document.getElementById('loginSurname').value.trim();
-    const index = document.getElementById('loginIndex').value.trim();
-    const errorEl = document.getElementById('loginError');
-    errorEl.textContent = '';
-    if (!name) { errorEl.textContent = '❌ Podaj imię'; return; }
-    if (!surname) { errorEl.textContent = '❌ Podaj nazwisko'; return; }
-    if (!index) { errorEl.textContent = '❌ Podaj indeks'; return; }
-    if (usedIndices.has(index)) { errorEl.textContent = `❌ Indeks "${index}" ma już miejsce!`; return; }
-    currentUser = { name, surname, index, isAdmin: false };
-    showMainScreen();
-    startTimer();
-  }
-
-  function adminLogin() {
-    const login = document.getElementById('adminLogin').value.trim();
-    const pass = document.getElementById('adminPassword').value.trim();
-    const errorEl = document.getElementById('loginError');
-    errorEl.textContent = '';
-    if (login === ADMIN_CREDENTIALS.login && pass === ADMIN_CREDENTIALS.password) {
-      currentUser = { name: 'Admin', surname: '', index: 'ADMIN', isAdmin: true };
-      showMainScreen();
-      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-      document.getElementById('timerDisplay').textContent = '';
-    } else {
-      errorEl.textContent = '❌ Nieprawidłowy login lub hasło!';
+    // ============================================================
+    // POBIERANIE DANYCH OD ADMINA
+    // ============================================================
+    function promptForData() {
+      const name = prompt('Imię osoby:');
+      if (!name || name.trim() === '') return null;
+      const surname = prompt('Nazwisko osoby:');
+      if (!surname || surname.trim() === '') return null;
+      const index = prompt('Numer indeksu:');
+      if (!index || index.trim() === '') return null;
+      return { index: index.trim(), name: name.trim(), surname: surname.trim() };
     }
-  }
 
-  function showMainScreen() {
-    document.getElementById('loginSection').classList.add('hidden');
-    document.getElementById('mainSection').classList.remove('hidden');
-    const display = document.getElementById('userDisplay');
-    if (currentUser.isAdmin) {
-      display.textContent = '👑 Administrator';
-    } else {
-      display.textContent = `👤 ${currentUser.name} ${currentUser.surname} (${currentUser.index})`;
-    }
-    const adminPanel = document.getElementById('adminPanel');
-    const adminBadge = document.getElementById('adminBadge');
-    if (currentUser.isAdmin) {
-      adminPanel.classList.remove('hidden');
-      adminBadge.classList.remove('hidden');
-    } else {
-      adminPanel.classList.add('hidden');
-      adminBadge.classList.add('hidden');
-    }
-  }
-
-  function showLoginScreen() {
-    document.getElementById('loginSection').classList.remove('hidden');
-    document.getElementById('mainSection').classList.add('hidden');
-    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-    document.getElementById('timerDisplay').textContent = '';
-    currentUser = null;
-    timeLeft = SESSION_TIMEOUT;
-  }
-
-  function logout() {
-    showLoginScreen();
-    document.getElementById('loginName').value = '';
-    document.getElementById('loginSurname').value = '';
-    document.getElementById('loginIndex').value = '';
-    document.getElementById('adminLogin').value = '';
-    document.getElementById('adminPassword').value = '';
-    document.getElementById('loginError').textContent = '';
-    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-  }
-
-  // ============================================================
-  // TIMER
-  // ============================================================
-  function startTimer() {
-    if (timerInterval) clearInterval(timerInterval);
-    timeLeft = SESSION_TIMEOUT;
-    updateTimerDisplay();
-    timerInterval = setInterval(() => {
-      timeLeft--;
-      updateTimerDisplay();
-      if (timeLeft <= 0) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-        alert('⏰ Twój czas minął. Zostaniesz wylogowany.');
-        logout();
+    // ============================================================
+    // ADMIN – CSV i RESET
+    // ============================================================
+    function exportCSV() {
+      let csv = 'Rząd;Miejsce;Indeks;Imię;Nazwisko\n';
+      for (let r = 1; r <= ROWS; r++) {
+        for (let c = 1; c <= COLS; c++) {
+          const idx = seatId(r, c);
+          const seat = seats[idx];
+          if (seat && seat.taken && !seat.blocked) {
+            csv += `${r};${c};${seat.index};${seat.name};${seat.surname}\n`;
+          }
+        }
       }
-    }, 1000);
-  }
-
-  function updateTimerDisplay() {
-    const el = document.getElementById('timerDisplay');
-    if (!el) return;
-    if (currentUser && !currentUser.isAdmin) {
-      el.textContent = `⏳ ${timeLeft}s`;
-    } else {
-      el.textContent = '';
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.href = url;
+      link.download = `rezerwacje_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      alert('✅ CSV pobrany!');
     }
-  }
 
-  // ============================================================
-  // UDOSTĘPNIANIE
-  // ============================================================
-  function copyLink() {
-    const url = window.location.href;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(url).then(() => alert('✅ Link skopiowany!'))
-        .catch(() => prompt('Skopiuj link:', url));
-    } else {
-      prompt('Skopiuj link:', url);
+    function resetAll() {
+      if (!confirm('⚠️ Usunąć wszystkie rezerwacje?')) return;
+      if (!confirm('Tej operacji NIE MOŻNA cofnąć. Kontynuować?')) return;
+      db.ref('/').remove();
+      alert('✅ Zresetowano!');
     }
-  }
 
-  function showQR() {
-    const url = window.location.href;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
-    const win = window.open('', '_blank', 'width=400,height=450');
-    if (win) {
-      win.document.write(`
-        <html><head><title>Kod QR</title>
-        <style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;background:white;}img{max-width:300px;border:2px solid #e2e8f0;border-radius:16px;padding:12px;}p{margin-top:20px;color:#1e293b;font-size:14px;text-align:center;padding:0 20px;}</style>
-        </head><body>
-        <img src="${qrUrl}" alt="QR"><p>Zeskanuj, aby otworzyć stronę</p>
-        <p style="font-size:12px; color:#94a3b8;">${url}</p>
-        </body></html>
-      `);
-      win.document.close();
-    } else {
-      alert('Otwórz w przeglądarce, aby zobaczyć QR.');
+    // ============================================================
+    // LOGOWANIE
+    // ============================================================
+    function studentLogin() {
+      const name = document.getElementById('loginName').value.trim();
+      const surname = document.getElementById('loginSurname').value.trim();
+      const index = document.getElementById('loginIndex').value.trim();
+      const errorEl = document.getElementById('loginError');
+      errorEl.textContent = '';
+
+      if (!name) { errorEl.textContent = '❌ Podaj imię'; return; }
+      if (!surname) { errorEl.textContent = '❌ Podaj nazwisko'; return; }
+      if (!index) { errorEl.textContent = '❌ Podaj indeks'; return; }
+
+      // Sprawdzenie czy indeks ma już miejsce
+      if (usedIndices.has(index)) {
+        errorEl.textContent = `❌ Indeks "${index}" ma już zarezerwowane miejsce!`;
+        return;
+      }
+
+      currentUser = { name, surname, index, isAdmin: false };
+      showMainScreen();
+      startTimer();
     }
-  }
 
-  // ============================================================
-  // START
-  // ============================================================
-  document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('studentLoginBtn').addEventListener('click', studentLogin);
-    document.getElementById('adminLoginBtn').addEventListener('click', adminLogin);
-    document.querySelectorAll('#loginName, #loginSurname, #loginIndex').forEach(el => {
-      el.addEventListener('keypress', (e) => { if (e.key === 'Enter') studentLogin(); });
+    function adminLogin() {
+      const login = document.getElementById('adminLogin').value.trim();
+      const pass = document.getElementById('adminPassword').value.trim();
+      const errorEl = document.getElementById('loginError');
+      errorEl.textContent = '';
+
+      if (login === ADMIN_CREDENTIALS.login && pass === ADMIN_CREDENTIALS.password) {
+        currentUser = { name: 'Admin', surname: '', index: 'ADMIN', isAdmin: true };
+        showMainScreen();
+        if (timerInterval) { clearInterval(timerInterval);
+          timerInterval = null; }
+        document.getElementById('timerDisplay').textContent = '';
+      } else {
+        errorEl.textContent = '❌ Nieprawidłowy login lub hasło!';
+      }
+    }
+
+    function showMainScreen() {
+      document.getElementById('loginSection').classList.add('hidden');
+      document.getElementById('mainSection').classList.remove('hidden');
+
+      const display = document.getElementById('userDisplay');
+      if (currentUser.isAdmin) {
+        display.textContent = '👑 Administrator';
+      } else {
+        display.textContent = `👤 ${currentUser.name} ${currentUser.surname} (${currentUser.index})`;
+      }
+
+      const adminPanel = document.getElementById('adminPanel');
+      const adminBadge = document.getElementById('adminBadge');
+      if (currentUser.isAdmin) {
+        adminPanel.classList.remove('hidden');
+        adminBadge.classList.remove('hidden');
+      } else {
+        adminPanel.classList.add('hidden');
+        adminBadge.classList.add('hidden');
+      }
+    }
+
+    function showLoginScreen() {
+      document.getElementById('loginSection').classList.remove('hidden');
+      document.getElementById('mainSection').classList.add('hidden');
+      if (timerInterval) { clearInterval(timerInterval);
+        timerInterval = null; }
+      document.getElementById('timerDisplay').textContent = '';
+      currentUser = null;
+      timeLeft = SESSION_TIMEOUT;
+    }
+
+    function logout() {
+      showLoginScreen();
+      document.getElementById('loginName').value = '';
+      document.getElementById('loginSurname').value = '';
+      document.getElementById('loginIndex').value = '';
+      document.getElementById('adminLogin').value = '';
+      document.getElementById('adminPassword').value = '';
+      document.getElementById('loginError').textContent = '';
+      if (timerInterval) { clearInterval(timerInterval);
+        timerInterval = null; }
+    }
+
+    // ============================================================
+    // TIMER
+    // ============================================================
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timeLeft = SESSION_TIMEOUT;
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        updateTimerDisplay();
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+          alert('⏰ Twój czas minął. Zostaniesz wylogowany.');
+          logout();
+        }
+      }, 1000);
+    }
+
+    function updateTimerDisplay() {
+      const el = document.getElementById('timerDisplay');
+      if (!el) return;
+      if (currentUser && !currentUser.isAdmin) {
+        el.textContent = `⏳ ${timeLeft}s`;
+      } else {
+        el.textContent = '';
+      }
+    }
+
+    // ============================================================
+    // UDOSTĘPNIANIE
+    // ============================================================
+    function copyLink() {
+      const url = window.location.href;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => alert('✅ Link skopiowany!'))
+          .catch(() => prompt('Skopiuj link:', url));
+      } else {
+        prompt('Skopiuj link:', url);
+      }
+    }
+
+    function showQR() {
+      const url = window.location.href;
+      const qrUrl =
+        `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
+      const win = window.open('', '_blank', 'width=400,height=450');
+      if (win) {
+        win.document.write(`
+            <html><head><title>Kod QR</title>
+            <style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;background:white;}img{max-width:300px;border:2px solid #e2e8f0;border-radius:16px;padding:12px;}p{margin-top:20px;color:#1e293b;font-size:14px;text-align:center;padding:0 20px;}</style>
+            </head><body>
+            <img src="${qrUrl}" alt="QR"><p>Zeskanuj, aby otworzyć stronę</p>
+            <p style="font-size:12px; color:#94a3b8;">${url}</p>
+            </body></html>
+          `);
+        win.document.close();
+      } else {
+        alert('Otwórz w przeglądarce, aby zobaczyć QR.');
+      }
+    }
+
+    // ============================================================
+    // START
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('studentLoginBtn').addEventListener('click', studentLogin);
+      document.getElementById('adminLoginBtn').addEventListener('click', adminLogin);
+
+      document.querySelectorAll('#loginName, #loginSurname, #loginIndex').forEach(el => {
+        el.addEventListener('keypress', (e) => { if (e.key === 'Enter') studentLogin(); });
+      });
+      document.querySelectorAll('#adminLogin, #adminPassword').forEach(el => {
+        el.addEventListener('keypress', (e) => { if (e.key === 'Enter') adminLogin(); });
+      });
+
+      document.getElementById('logoutBtn').addEventListener('click', logout);
+      document.getElementById('exportBtn').addEventListener('click', exportCSV);
+      document.getElementById('resetBtn').addEventListener('click', resetAll);
+      document.getElementById('shareLinkBtn').addEventListener('click', copyLink);
+      document.getElementById('qrBtn').addEventListener('click', showQR);
+
+      // Inicjalizacja danych
+      if (!seats || seats.length === 0) {
+        initSeats();
+      }
     });
-    document.querySelectorAll('#adminLogin, #adminPassword').forEach(el => {
-      el.addEventListener('keypress', (e) => { if (e.key === 'Enter') adminLogin(); });
-    });
-    document.getElementById('logoutBtn').addEventListener('click', logout);
-    document.getElementById('exportBtn').addEventListener('click', exportCSV);
-    document.getElementById('resetBtn').addEventListener('click', resetAll);
-    document.getElementById('shareLinkBtn').addEventListener('click', copyLink);
-    document.getElementById('qrBtn').addEventListener('click', showQR);
-  });
-</script>
+  </script>
 </body>
 </html>
