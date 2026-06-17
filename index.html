@@ -5,379 +5,76 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rezerwacja sali</title>
   
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
   </script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js">
   </script>
 
   <style>
-    * {
-      box-sizing: border-box;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-    }
-    body {
-      background: #f0f2f5;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      margin: 0;
-      padding: 16px;
-    }
-    .container {
-      width: 100%;
-      max-width: 800px;
-      background: white;
-      border-radius: 24px;
-      padding: 24px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-    }
-    h1 {
-      text-align: center;
-      margin: 0 0 4px;
-      font-size: 26px;
-      color: #1e293b;
-    }
-    .sub {
-      text-align: center;
-      color: #64748b;
-      margin: 0 0 20px;
-      font-size: 14px;
-    }
-    .login-box {
-      padding: 8px 0;
-    }
-    .login-box label {
-      display: block;
-      font-weight: 600;
-      color: #1e293b;
-      margin: 12px 0 4px;
-      font-size: 14px;
-    }
-    .login-box input {
-      width: 100%;
-      padding: 12px 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 12px;
-      font-size: 16px;
-      transition: 0.2s;
-    }
-    .login-box input:focus {
-      border-color: #3b82f6;
-      outline: none;
-    }
-    .btn {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 40px;
-      font-weight: 600;
-      font-size: 16px;
-      cursor: pointer;
-      transition: 0.2s;
-      margin-top: 12px;
-    }
-    .btn-success {
-      background: #22c55e;
-      color: white;
-    }
-    .btn-success:hover {
-      background: #16a34a;
-    }
-    .btn-admin {
-      background: #8b5cf6;
-      color: white;
-    }
-    .btn-admin:hover {
-      background: #7c3aed;
-    }
-    .btn-primary {
-      background: #3b82f6;
-      color: white;
-    }
-    .btn-primary:hover {
-      background: #2563eb;
-    }
-    .btn-danger {
-      background: #ef4444;
-      color: white;
-    }
-    .btn-danger:hover {
-      background: #dc2626;
-    }
-    .btn-warning {
-      background: #f59e0b;
-      color: white;
-    }
-    .btn-warning:hover {
-      background: #d97706;
-    }
-    .hidden {
-      display: none !important;
-    }
-    .login-divider {
-      border: none;
-      border-top: 2px dashed #e2e8f0;
-      margin: 20px 0;
-    }
-    .login-section-title {
-      text-align: center;
-      font-weight: 700;
-      color: #64748b;
-      font-size: 14px;
-      margin: 8px 0 4px;
-    }
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 16px; }
+    .container { width: 100%; max-width: 800px; background: white; border-radius: 24px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
+    h1 { text-align: center; margin: 0 0 4px; font-size: 26px; color: #1e293b; }
+    .sub { text-align: center; color: #64748b; margin: 0 0 20px; font-size: 14px; }
+    .login-box { padding: 8px 0; }
+    .login-box label { display: block; font-weight: 600; color: #1e293b; margin: 12px 0 4px; font-size: 14px; }
+    .login-box input { width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 16px; transition: 0.2s; }
+    .login-box input:focus { border-color: #3b82f6; outline: none; }
+    .btn { width: 100%; padding: 12px; border: none; border-radius: 40px; font-weight: 600; font-size: 16px; cursor: pointer; transition: 0.2s; margin-top: 12px; }
+    .btn-success { background: #22c55e; color: white; }
+    .btn-success:hover { background: #16a34a; }
+    .btn-admin { background: #8b5cf6; color: white; }
+    .btn-admin:hover { background: #7c3aed; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-warning { background: #f59e0b; color: white; }
+    .btn-warning:hover { background: #d97706; }
+    .hidden { display: none !important; }
+    .login-divider { border: none; border-top: 2px dashed #e2e8f0; margin: 20px 0; }
+    .login-section-title { text-align: center; font-weight: 700; color: #64748b; font-size: 14px; margin: 8px 0 4px; }
     
     /* QUEUE PAGE */
-    #queuePage {
-      text-align: center;
-      padding: 40px 20px;
-    }
-    #queuePage .queue-number {
-      font-size: 72px;
-      font-weight: 900;
-      color: #3b82f6;
-      margin: 20px 0;
-    }
-    #queuePage .queue-info {
-      font-size: 18px;
-      color: #475569;
-      margin: 10px 0;
-    }
-    #queuePage .queue-status {
-      background: #f8fafc;
-      border-radius: 16px;
-      padding: 20px;
-      margin: 20px 0;
-    }
-    .waiting-animation {
-      display: inline-block;
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0% { opacity: 0.4; transform: scale(1); }
-      50% { opacity: 1; transform: scale(1.05); }
-      100% { opacity: 0.4; transform: scale(1); }
-    }
+    #queuePage { text-align: center; padding: 40px 20px; }
+    #queuePage .queue-number { font-size: 72px; font-weight: 900; color: #3b82f6; margin: 20px 0; }
+    #queuePage .queue-info { font-size: 18px; color: #475569; margin: 10px 0; }
+    #queuePage .queue-status { background: #f8fafc; border-radius: 16px; padding: 20px; margin: 20px 0; }
+    .waiting-animation { display: inline-block; animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0.4; transform: scale(1); } }
     
-    #hall {
-      display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      gap: 6px;
-      padding: 12px 0;
-    }
-    .seat {
-      aspect-ratio: 1/1;
-      background: #22c55e;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: 0.15s;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      min-height: 48px;
-    }
-    .seat:hover:not(.taken):not(.blocked) {
-      background: #16a34a;
-      transform: scale(1.04);
-    }
-    .seat.taken {
-      background: #ef4444;
-      cursor: default;
-    }
-    .seat.taken.admin-hover:hover {
-      opacity: 0.7;
-      cursor: pointer;
-    }
-    .seat.blocked {
-      background: #cbd5e1;
-      cursor: not-allowed;
-      color: #475569;
-      font-size: 18px;
-    }
-    .seat .index-nr {
-      font-size: 15px;
-      font-weight: 700;
-    }
-    .seat .tooltip {
-      display: none;
-      position: absolute;
-      bottom: 110%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #1e293b;
-      color: white;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 11px;
-      white-space: nowrap;
-      z-index: 10;
-    }
-    .seat.taken:hover .tooltip {
-      display: block;
-    }
-    .row-label {
-      grid-column: 1 / -1;
-      font-weight: 700;
-      color: #1e293b;
-      background: #f1f5f9;
-      padding: 4px 10px;
-      border-radius: 8px;
-      text-align: center;
-      margin: 2px 0;
-      font-size: 13px;
-    }
-    .row-label.blocked-row {
-      background: #e2e8f0;
-      color: #64748b;
-    }
-    #queue-section {
-      background: #f8fafc;
-      padding: 12px 16px;
-      border-radius: 16px;
-      margin: 12px 0;
-    }
-    #queue-list {
-      list-style: none;
-      padding: 0;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: center;
-      margin: 6px 0;
-    }
-    #queue-list li {
-      background: #e2e8f0;
-      padding: 4px 14px;
-      border-radius: 30px;
-      font-size: 13px;
-    }
-    #queue-list li.highlight {
-      background: #3b82f6;
-      color: white;
-      font-weight: 700;
-    }
-    .info-badge {
-      display: inline-block;
-      padding: 3px 14px;
-      border-radius: 30px;
-      font-size: 13px;
-      margin: 3px;
-    }
-    .badge-blue {
-      background: #3b82f6;
-      color: white;
-    }
-    .badge-green {
-      background: #22c55e;
-      color: white;
-    }
-    .badge-red {
-      background: #ef4444;
-      color: white;
-    }
-    #status {
-      text-align: center;
-      margin: 4px 0;
-    }
-    .admin-panel {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin: 12px 0 4px;
-    }
-    .admin-panel .btn {
-      flex: 1;
-      min-width: 100px;
-      margin-top: 0;
-    }
-    .user-info {
-      background: #eff6ff;
-      padding: 10px 16px;
-      border-radius: 14px;
-      margin-bottom: 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .user-info .name {
-      font-weight: 600;
-      color: #1e293b;
-    }
-    .user-info .logout-btn {
-      background: #ef4444;
-      color: white;
-      border: none;
-      padding: 6px 18px;
-      border-radius: 30px;
-      cursor: pointer;
-      font-size: 13px;
-    }
-    .share-box {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin: 12px 0 4px;
-    }
-    .share-box .btn {
-      flex: 1;
-      min-width: 100px;
-      margin-top: 0;
-      font-size: 14px;
-      padding: 10px;
-    }
-    .footer-note {
-      color: #94a3b8;
-      font-size: 12px;
-      text-align: center;
-      margin-top: 16px;
-    }
-    .error-msg {
-      color: #ef4444;
-      font-size: 14px;
-      margin-top: 8px;
-      text-align: center;
-    }
-    .queue-position {
-      background: #1e293b;
-      color: white;
-      padding: 6px 16px;
-      border-radius: 40px;
-      font-weight: 600;
-      font-size: 14px;
-      display: inline-block;
-      margin: 4px 0;
-    }
-    .timer {
-      background: #f59e0b;
-      color: white;
-      padding: 4px 14px;
-      border-radius: 40px;
-      font-weight: 700;
-      font-size: 14px;
-      display: inline-block;
-    }
-    @media (max-width: 500px) {
-      .container {
-        padding: 16px;
-      }
-      .seat {
-        font-size: 10px;
-        min-height: 40px;
-      }
-      #queuePage .queue-number {
-        font-size: 48px;
-      }
-    }
+    #hall { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; padding: 12px 0; }
+    .seat { aspect-ratio: 1/1; background: #22c55e; color: white; border: none; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.15s; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; min-height: 48px; }
+    .seat:hover:not(.taken):not(.blocked) { background: #16a34a; transform: scale(1.04); }
+    .seat.taken { background: #ef4444; cursor: default; }
+    .seat.taken.admin-hover:hover { opacity: 0.7; cursor: pointer; }
+    .seat.blocked { background: #cbd5e1; cursor: not-allowed; color: #475569; font-size: 18px; }
+    .seat .index-nr { font-size: 15px; font-weight: 700; }
+    .seat .tooltip { display: none; position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; white-space: nowrap; z-index: 10; }
+    .seat.taken:hover .tooltip { display: block; }
+    .row-label { grid-column: 1 / -1; font-weight: 700; color: #1e293b; background: #f1f5f9; padding: 4px 10px; border-radius: 8px; text-align: center; margin: 2px 0; font-size: 13px; }
+    .row-label.blocked-row { background: #e2e8f0; color: #64748b; }
+    #queue-section { background: #f8fafc; padding: 12px 16px; border-radius: 16px; margin: 12px 0; }
+    #queue-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 6px 0; }
+    #queue-list li { background: #e2e8f0; padding: 4px 14px; border-radius: 30px; font-size: 13px; }
+    #queue-list li.highlight { background: #3b82f6; color: white; font-weight: 700; }
+    .info-badge { display: inline-block; padding: 3px 14px; border-radius: 30px; font-size: 13px; margin: 3px; }
+    .badge-blue { background: #3b82f6; color: white; }
+    .badge-green { background: #22c55e; color: white; }
+    .badge-red { background: #ef4444; color: white; }
+    #status { text-align: center; margin: 4px 0; }
+    .admin-panel { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
+    .admin-panel .btn { flex: 1; min-width: 100px; margin-top: 0; }
+    .user-info { background: #eff6ff; padding: 10px 16px; border-radius: 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .user-info .name { font-weight: 600; color: #1e293b; }
+    .user-info .logout-btn { background: #ef4444; color: white; border: none; padding: 6px 18px; border-radius: 30px; cursor: pointer; font-size: 13px; }
+    .share-box { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
+    .share-box .btn { flex: 1; min-width: 100px; margin-top: 0; font-size: 14px; padding: 10px; }
+    .footer-note { color: #94a3b8; font-size: 12px; text-align: center; margin-top: 16px; }
+    .error-msg { color: #ef4444; font-size: 14px; margin-top: 8px; text-align: center; }
+    .queue-position { background: #1e293b; color: white; padding: 6px 16px; border-radius: 40px; font-weight: 600; font-size: 14px; display: inline-block; margin: 4px 0; }
+    .timer { background: #f59e0b; color: white; padding: 4px 14px; border-radius: 40px; font-weight: 700; font-size: 14px; display: inline-block; }
+    @media (max-width: 500px) { .container { padding: 16px; } .seat { font-size: 10px; min-height: 40px; } #queuePage .queue-number { font-size: 48px; } }
   </style>
 </head>
 <body>
@@ -387,14 +84,10 @@
 
     <!-- LOGOWANIE -->
     <div id="loginSection" class="login-box">
-      <div class="login-section-title">🎓 LOGOWANIE STUDENTA</div>
-      <label>👤 Imię</label>
-      <input type="text" id="loginName" placeholder="Wpisz imię">
-      <label>📛 Nazwisko</label>
-      <input type="text" id="loginSurname" placeholder="Wpisz nazwisko">
+      <div class="login-section-title">🎓 LOGOWANIE</div>
       <label>🎓 Numer indeksu</label>
       <input type="text" id="loginIndex" placeholder="Wpisz numer indeksu">
-      <button class="btn btn-success" id="studentLoginBtn">✅ Wejdź jako student</button>
+      <button class="btn btn-success" id="studentLoginBtn">✅ Wejdź</button>
       <hr class="login-divider">
       <div class="login-section-title">👑 LOGOWANIE ADMINISTRATORA</div>
       <label>🔑 Login</label>
@@ -405,7 +98,7 @@
       <div id="loginError" class="error-msg"></div>
     </div>
 
-    <!-- STRONA KOLEJKI (dla studentów) -->
+    <!-- STRONA KOLEJKI -->
     <div id="queuePage" class="hidden">
       <div class="user-info">
         <span class="name" id="queueUserDisplay">👤 </span>
@@ -416,17 +109,17 @@
         <div class="waiting-animation" style="font-size:48px;">⏳</div>
         <h2>Jesteś w kolejce</h2>
         <div class="queue-number" id="queueNumberDisplay">-</div>
-        <div class="queue-info" id="queueInfoDisplay">Oczekiwanie na wolne miejsce...</div>
+        <div class="queue-info" id="queueInfoDisplay">Oczekiwanie na wejście do sali...</div>
         <div style="margin-top:20px; background:#f1f5f9; padding:15px; border-radius:12px;">
-          <p style="margin:5px 0; color:#475569;">👥 <span id="queueTotalDisplay">0</span> osób czeka przed Tobą</p>
+          <p style="margin:5px 0; color:#475569;">👥 <span id="queueTotalDisplay">0</span> osób przed Tobą</p>
           <p style="margin:5px 0; color:#475569;">📌 Wolne miejsca: <span id="queueFreeSeats">0</span></p>
         </div>
       </div>
       <button class="btn btn-danger" id="queueLeaveBtn">❌ Zrezygnuj z kolejki</button>
-      <p style="color:#94a3b8; font-size:13px; margin-top:16px;">Nie zamykaj tej strony – automatycznie przejdziesz do rezerwacji, gdy zwolni się miejsce</p>
+      <p style="color:#94a3b8; font-size:13px; margin-top:16px;">Nie zamykaj tej strony – automatycznie wejdziesz do sali, gdy zwolni się miejsce</p>
     </div>
 
-    <!-- STRONA GŁÓWNA (SALA) -->
+    <!-- STRONA SALI -->
     <div id="mainSection" class="hidden">
       <div class="user-info">
         <span class="name" id="userDisplay">👤 </span>
@@ -480,6 +173,7 @@
     const BLOCKED_ROW = 1;
     const ADMIN_CREDENTIALS = { login: 'admin', password: 'admin123' };
     const SESSION_TIMEOUT = 100;
+    const MAX_USERS_IN_SESSION = 1; // Tylko 1 osoba na sali w danym momencie!
 
     // ============================================================
     // STAN
@@ -492,9 +186,10 @@
     let timeLeft = SESSION_TIMEOUT;
     let isInQueuePage = false;
     let queueCheckInterval = null;
+    let currentSessionUser = null; // Kto aktualnie jest na sali
 
     // ============================================================
-    // NASŁUCHIWANIE ZMIAN W CHMURZE (REAL TIME)
+    // NASŁUCHIWANIE ZMIAN W CHMURZE
     // ============================================================
     const stateRef = db.ref('/');
     stateRef.on('value', (snapshot) => {
@@ -502,9 +197,9 @@
       if (data) {
         seats = data.seats || [];
         queue = data.queue || [];
+        currentSessionUser = data.currentSessionUser || null;
         updateUsedIndices();
         render();
-        // Jeśli użytkownik jest na stronie kolejki – sprawdź czy dostał miejsce
         if (isInQueuePage && currentUser && !currentUser.isAdmin) {
           checkQueueStatus();
         }
@@ -532,7 +227,7 @@
           });
         }
       }
-      db.ref('/').set({ seats: newSeats, queue: [] });
+      db.ref('/').set({ seats: newSeats, queue: [], currentSessionUser: null });
     }
 
     function seatId(row, col) { return (row - 1) * COLS + (col - 1); }
@@ -546,7 +241,6 @@
       // Czy użytkownik ma już miejsce?
       const hasSeat = seats.some(s => s.taken && !s.blocked && s.index === currentUser.index);
       if (hasSeat) {
-        // Przejście do sali
         goToMainScreen();
         return;
       }
@@ -554,14 +248,16 @@
       // Czy jest w kolejce?
       const queueIndex = queue.findIndex(item => item.index === currentUser.index);
       if (queueIndex === -1) {
-        // Jeśli nie ma miejsca i nie jest w kolejce – wróć do logowania
-        alert('❌ Zostałeś usunięty z kolejki. Zaloguj się ponownie.');
         logout();
         return;
       }
 
-      // Aktualizacja strony kolejki
       updateQueuePage(queueIndex);
+
+      // Jeśli jesteś pierwszy i nikt nie jest na sali -> wejdź!
+      if (queueIndex === 0 && !currentSessionUser) {
+        enterHall();
+      }
     }
 
     function updateQueuePage(queueIndex) {
@@ -571,43 +267,45 @@
       document.getElementById('queueNumberDisplay').textContent = position;
       document.getElementById('queueTotalDisplay').textContent = total;
       document.getElementById('queueInfoDisplay').textContent =
-        position === 1 ? '🔔 Jesteś PIERWSZY! Czekaj na wolne miejsce...' :
-        `⏳ Oczekiwanie na zwolnienie miejsca...`;
+        position === 1 ? '🔔 Jesteś PIERWSZY! Czekaj na wejście do sali...' :
+        `⏳ Oczekiwanie na wejście do sali...`;
 
       const freeSeats = seats.filter(s => !s.taken && !s.blocked).length;
       document.getElementById('queueFreeSeats').textContent = freeSeats;
-
-      // Jeśli jesteś pierwszy i są wolne miejsca – odśwież
-      if (position === 1 && freeSeats > 0) {
-        // Sprawdź czy któreś wolne miejsce jest dostępne
-        const freeIdx = seats.findIndex(s => !s.taken && !s.blocked);
-        if (freeIdx !== -1) {
-          // Rezerwuj automatycznie dla użytkownika
-          autoReserveForQueueUser(freeIdx);
-        }
-      }
     }
 
-    function autoReserveForQueueUser(idx) {
+    // ============================================================
+    // WEJŚCIE NA SALĘ (dla pierwszego z kolejki)
+    // ============================================================
+    function enterHall() {
       if (!currentUser || currentUser.isAdmin) return;
-      const seat = seats[idx];
-      if (seat.taken || seat.blocked) return;
+      if (currentSessionUser) return; // Ktoś już jest na sali
 
-      // Rezerwacja dla użytkownika z kolejki
-      db.ref(`/seats/${idx}`).set({
-        taken: true,
-        blocked: false,
-        index: currentUser.index,
-        name: currentUser.name,
-        surname: currentUser.surname
-      });
+      // Ustaw, że ten użytkownik jest na sali
+      db.ref('/currentSessionUser').set(currentUser.index);
+      goToMainScreen();
+    }
 
-      // Usunięcie z kolejki
+    // ============================================================
+    // OPUSZCZANIE SALI (zwalnianie miejsca dla kolejki)
+    // ============================================================
+    function leaveHall() {
+      if (!currentUser || currentUser.isAdmin) return;
+      
+      // Usuń z sesji
+      db.ref('/currentSessionUser').remove();
+      
+      // Jeśli użytkownik ma miejsce - zwolnij je
+      const userSeatIdx = seats.findIndex(s => s.taken && !s.blocked && s.index === currentUser.index);
+      if (userSeatIdx !== -1) {
+        db.ref(`/seats/${userSeatIdx}`).set({ taken: false, blocked: false, index: '', name: '', surname: '' });
+      }
+      
+      // Jeśli jest w kolejce - usuń
       const newQueue = queue.filter(item => item.index !== currentUser.index);
       db.ref('/queue').set(newQueue);
-
-      alert('🎉 Znalazło się wolne miejsce! Przechodzisz do rezerwacji.');
-      goToMainScreen();
+      
+      logout();
     }
 
     // ============================================================
@@ -615,8 +313,7 @@
     // ============================================================
     function goToMainScreen() {
       isInQueuePage = false;
-      if (queueCheckInterval) { clearInterval(queueCheckInterval);
-        queueCheckInterval = null; }
+      if (queueCheckInterval) { clearInterval(queueCheckInterval); queueCheckInterval = null; }
 
       document.getElementById('queuePage').classList.add('hidden');
       document.getElementById('mainSection').classList.remove('hidden');
@@ -625,7 +322,7 @@
       if (currentUser.isAdmin) {
         display.textContent = '👑 Administrator';
       } else {
-        display.textContent = `👤 ${currentUser.name} ${currentUser.surname} (${currentUser.index})`;
+        display.textContent = `👤 Indeks: ${currentUser.index}`;
       }
 
       const adminPanel = document.getElementById('adminPanel');
@@ -647,64 +344,46 @@
       document.getElementById('queuePage').classList.remove('hidden');
 
       const display = document.getElementById('queueUserDisplay');
-      display.textContent = `👤 ${currentUser.name} ${currentUser.surname} (${currentUser.index})`;
+      display.textContent = `👤 Indeks: ${currentUser.index}`;
 
-      // Timer dla kolejki (też 100s)
-      if (timerInterval) { clearInterval(timerInterval);
-        timerInterval = null; }
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
       startTimer('queueTimerDisplay');
 
-      // Sprawdź status co 2 sekundy
       if (queueCheckInterval) { clearInterval(queueCheckInterval); }
       queueCheckInterval = setInterval(() => {
         if (currentUser && !currentUser.isAdmin) {
           checkQueueStatus();
         }
-      }, 2000);
+      }, 1000);
 
-      // Pierwsze sprawdzenie
       setTimeout(() => checkQueueStatus(), 500);
     }
 
-    // ============================================================
-    // REJESTRACJA W KOLEJCE
-    // ============================================================
-    function joinQueue() {
-      if (!currentUser || currentUser.isAdmin) return;
-
-      // Sprawdzenie czy użytkownik ma już miejsce
-      if (usedIndices.has(currentUser.index)) {
-        alert('❌ Masz już zarezerwowane miejsce!');
-        return;
-      }
-
-      // Sprawdzenie czy już jest w kolejce
-      if (queue.some(item => item.index === currentUser.index)) {
-        alert('⏳ Jesteś już w kolejce!');
-        goToQueuePage();
-        return;
-      }
-
-      // Dodanie do kolejki
-      const newQueue = [...queue, { index: currentUser.index, name: currentUser.name, surname: currentUser.surname }];
-      db.ref('/queue').set(newQueue);
-
-      alert(`✅ Dodano do kolejki! Twoja pozycja: ${newQueue.length}`);
-      goToQueuePage();
+    function showLoginScreen() {
+      document.getElementById('loginSection').classList.remove('hidden');
+      document.getElementById('mainSection').classList.add('hidden');
+      document.getElementById('queuePage').classList.add('hidden');
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+      if (queueCheckInterval) { clearInterval(queueCheckInterval); queueCheckInterval = null; }
+      document.getElementById('timerDisplay').textContent = '';
+      document.getElementById('queueTimerDisplay').textContent = '';
+      currentUser = null;
+      timeLeft = SESSION_TIMEOUT;
+      isInQueuePage = false;
     }
 
-    // ============================================================
-    // REZYGNACJA Z KOLEJKI
-    // ============================================================
-    function leaveQueue() {
-      if (!currentUser || currentUser.isAdmin) return;
-      if (!confirm('Czy na pewno chcesz zrezygnować z kolejki?')) return;
-
-      const newQueue = queue.filter(item => item.index !== currentUser.index);
-      db.ref('/queue').set(newQueue);
-
-      alert('❌ Zrezygnowałeś z kolejki.');
-      logout();
+    function logout() {
+      // Usuń z sesji jeśli był na sali
+      if (currentUser && !currentUser.isAdmin) {
+        db.ref('/currentSessionUser').remove();
+      }
+      showLoginScreen();
+      document.getElementById('loginIndex').value = '';
+      document.getElementById('adminLogin').value = '';
+      document.getElementById('adminPassword').value = '';
+      document.getElementById('loginError').textContent = '';
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+      if (queueCheckInterval) { clearInterval(queueCheckInterval); queueCheckInterval = null; }
     }
 
     // ============================================================
@@ -742,7 +421,7 @@
             btn.appendChild(spanIdx);
             const tooltip = document.createElement('span');
             tooltip.className = 'tooltip';
-            tooltip.textContent = `${seat.name} ${seat.surname}`;
+            tooltip.textContent = `Indeks: ${seat.index}`;
             btn.appendChild(tooltip);
           } else {
             btn.textContent = `${r}-${c}`;
@@ -768,7 +447,7 @@
         queue.forEach((item, i) => {
           const li = document.createElement('li');
           const pos = i + 1;
-          let text = `${pos}. ${item.name} ${item.surname} (${item.index})`;
+          let text = `${pos}. ${item.index}`;
           if (currentUser && !currentUser.isAdmin && item.index === currentUser.index) {
             li.className = 'highlight';
             text = `👉 ${text} ← TY`;
@@ -788,19 +467,19 @@
 
       // ADMIN
       if (currentUser.isAdmin) {
-        const data = promptForData();
-        if (!data) return;
-        if (usedIndices.has(data.index)) { alert('❌ Ten indeks ma już miejsce!'); return; }
-        if (!confirm(`Czy na pewno chcesz zarezerwować miejsce dla ${data.name} ${data.surname} (${data.index})?`)) return;
+        const index = prompt('Numer indeksu osoby:');
+        if (!index || index.trim() === '') return;
+        const cleanIndex = index.trim();
+        if (usedIndices.has(cleanIndex)) { alert('❌ Ten indeks ma już miejsce!'); return; }
+        if (!confirm(`Czy na pewno chcesz zarezerwować miejsce dla indeksu ${cleanIndex}?`)) return;
 
-        db.ref(`/seats/${idx}`).set({ taken: true, blocked: false, index: data.index, name: data.name, surname: data
-            .surname });
+        db.ref(`/seats/${idx}`).set({ taken: true, blocked: false, index: cleanIndex, name: '', surname: '' });
         alert('✅ Zarezerwowano!');
         processQueue();
         return;
       }
 
-      // STUDENT – sprawdzenie czy ma już miejsce
+      // STUDENT
       if (usedIndices.has(currentUser.index)) {
         alert('❌ Masz już zarezerwowane miejsce!');
         return;
@@ -813,39 +492,30 @@
         return;
       }
 
-      // Jeśli są wolne miejsca – rezerwacja od razu
-      if (!confirm(`Czy na pewno chcesz zarezerwować to miejsce dla ${currentUser.name} ${currentUser.surname}?`)) return;
+      if (!confirm(`Czy na pewno chcesz zarezerwować to miejsce dla indeksu ${currentUser.index}?`)) return;
 
       db.ref(`/seats/${idx}`).set({
         taken: true,
         blocked: false,
         index: currentUser.index,
-        name: currentUser.name,
-        surname: currentUser.surname
+        name: '',
+        surname: ''
       });
+      
+      // Usuń z kolejki jeśli był
+      const newQueue = queue.filter(item => item.index !== currentUser.index);
+      db.ref('/queue').set(newQueue);
+      
+      // Zwolnij sesję
+      db.ref('/currentSessionUser').remove();
+      
       alert('✅ Zarezerwowano!');
       processQueue();
-    }
-
-    // ============================================================
-    // STUDENT – DOŁĄCZ DO KOLEJKI
-    // ============================================================
-    function studentJoinQueue() {
-      if (!currentUser || currentUser.isAdmin) return;
-      if (usedIndices.has(currentUser.index)) {
-        alert('❌ Masz już zarezerwowane miejsce!');
-        return;
-      }
-      if (queue.some(item => item.index === currentUser.index)) {
-        alert('⏳ Jesteś już w kolejce!');
-        goToQueuePage();
-        return;
-      }
-
-      const newQueue = [...queue, { index: currentUser.index, name: currentUser.name, surname: currentUser.surname }];
-      db.ref('/queue').set(newQueue);
-      alert(`✅ Dodano do kolejki! Pozycja: ${newQueue.length}`);
-      goToQueuePage();
+      
+      // Wyloguj po rezerwacji (zwolnij miejsce dla innych)
+      setTimeout(() => {
+        logout();
+      }, 3000);
     }
 
     // ============================================================
@@ -856,7 +526,7 @@
       const seat = seats[idx];
       if (!seat.taken || seat.blocked) return;
 
-      if (!confirm(`⚠️ Czy na pewno chcesz USUNĄĆ rezerwację dla ${seat.name} ${seat.surname} (${seat.index})?`)) return;
+      if (!confirm(`⚠️ Czy na pewno chcesz USUNĄĆ rezerwację dla indeksu ${seat.index}?`)) return;
       if (!confirm(`To działanie jest nieodwracalne. Kontynuować?`)) return;
 
       db.ref(`/seats/${idx}`).set({ taken: false, blocked: false, index: '', name: '', surname: '' });
@@ -879,8 +549,8 @@
         taken: true,
         blocked: false,
         index: next.index,
-        name: next.name,
-        surname: next.surname
+        name: '',
+        surname: ''
       });
 
       if (newQueue.length > 0) {
@@ -892,29 +562,16 @@
     }
 
     // ============================================================
-    // POBIERANIE DANYCH OD ADMINA
-    // ============================================================
-    function promptForData() {
-      const name = prompt('Imię osoby:');
-      if (!name || name.trim() === '') return null;
-      const surname = prompt('Nazwisko osoby:');
-      if (!surname || surname.trim() === '') return null;
-      const index = prompt('Numer indeksu:');
-      if (!index || index.trim() === '') return null;
-      return { index: index.trim(), name: name.trim(), surname: surname.trim() };
-    }
-
-    // ============================================================
     // ADMIN – CSV i RESET
     // ============================================================
     function exportCSV() {
-      let csv = 'Rząd;Miejsce;Indeks;Imię;Nazwisko\n';
+      let csv = 'Rząd;Miejsce;Indeks\n';
       for (let r = 1; r <= ROWS; r++) {
         for (let c = 1; c <= COLS; c++) {
           const idx = seatId(r, c);
           const seat = seats[idx];
           if (seat && seat.taken && !seat.blocked) {
-            csv += `${r};${c};${seat.index};${seat.name};${seat.surname}\n`;
+            csv += `${r};${c};${seat.index}\n`;
           }
         }
       }
@@ -941,22 +598,18 @@
     // LOGOWANIE
     // ============================================================
     function studentLogin() {
-      const name = document.getElementById('loginName').value.trim();
-      const surname = document.getElementById('loginSurname').value.trim();
       const index = document.getElementById('loginIndex').value.trim();
       const errorEl = document.getElementById('loginError');
       errorEl.textContent = '';
 
-      if (!name) { errorEl.textContent = '❌ Podaj imię'; return; }
-      if (!surname) { errorEl.textContent = '❌ Podaj nazwisko'; return; }
-      if (!index) { errorEl.textContent = '❌ Podaj indeks'; return; }
+      if (!index) { errorEl.textContent = '❌ Podaj numer indeksu'; return; }
 
       if (usedIndices.has(index)) {
         errorEl.textContent = `❌ Indeks "${index}" ma już zarezerwowane miejsce!`;
         return;
       }
 
-      currentUser = { name, surname, index, isAdmin: false };
+      currentUser = { index, isAdmin: false };
 
       // Sprawdzenie czy użytkownik jest w kolejce
       const inQueue = queue.some(item => item.index === index);
@@ -967,20 +620,20 @@
         return;
       }
 
-      // Sprawdzenie czy są wolne miejsca
-      const freeSeats = seats.filter(s => !s.taken && !s.blocked).length;
-      if (freeSeats === 0) {
-        // Jeśli brak wolnych miejsc – automatycznie dodaj do kolejki
-        const newQueue = [...queue, { index, name, surname }];
+      // Sprawdzenie czy ktoś jest na sali
+      if (currentSessionUser && currentSessionUser !== index) {
+        // Ktoś inny jest na sali - dodaj do kolejki
+        const newQueue = [...queue, { index }];
         db.ref('/queue').set(newQueue);
         showMainScreen();
         startTimer();
         goToQueuePage();
-        alert(`⏳ Brak wolnych miejsc. Dodano do kolejki (pozycja ${newQueue.length})`);
+        alert(`⏳ Ktoś już wybiera miejsce. Dodano do kolejki (pozycja ${newQueue.length})`);
         return;
       }
 
-      // Są wolne miejsca – przejdź do sali
+      // Jeśli nikt nie jest na sali - wejdź
+      db.ref('/currentSessionUser').set(index);
       showMainScreen();
       startTimer();
     }
@@ -992,10 +645,9 @@
       errorEl.textContent = '';
 
       if (login === ADMIN_CREDENTIALS.login && pass === ADMIN_CREDENTIALS.password) {
-        currentUser = { name: 'Admin', surname: '', index: 'ADMIN', isAdmin: true };
+        currentUser = { index: 'ADMIN', isAdmin: true };
         showMainScreen();
-        if (timerInterval) { clearInterval(timerInterval);
-          timerInterval = null; }
+        if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
         document.getElementById('timerDisplay').textContent = '';
       } else {
         errorEl.textContent = '❌ Nieprawidłowy login lub hasło!';
@@ -1011,7 +663,7 @@
       if (currentUser.isAdmin) {
         display.textContent = '👑 Administrator';
       } else {
-        display.textContent = `👤 ${currentUser.name} ${currentUser.surname} (${currentUser.index})`;
+        display.textContent = `👤 Indeks: ${currentUser.index}`;
       }
 
       const adminPanel = document.getElementById('adminPanel');
@@ -1025,38 +677,8 @@
       }
 
       isInQueuePage = false;
-      if (queueCheckInterval) { clearInterval(queueCheckInterval);
-        queueCheckInterval = null; }
+      if (queueCheckInterval) { clearInterval(queueCheckInterval); queueCheckInterval = null; }
       render();
-    }
-
-    function showLoginScreen() {
-      document.getElementById('loginSection').classList.remove('hidden');
-      document.getElementById('mainSection').classList.add('hidden');
-      document.getElementById('queuePage').classList.add('hidden');
-      if (timerInterval) { clearInterval(timerInterval);
-        timerInterval = null; }
-      if (queueCheckInterval) { clearInterval(queueCheckInterval);
-        queueCheckInterval = null; }
-      document.getElementById('timerDisplay').textContent = '';
-      document.getElementById('queueTimerDisplay').textContent = '';
-      currentUser = null;
-      timeLeft = SESSION_TIMEOUT;
-      isInQueuePage = false;
-    }
-
-    function logout() {
-      showLoginScreen();
-      document.getElementById('loginName').value = '';
-      document.getElementById('loginSurname').value = '';
-      document.getElementById('loginIndex').value = '';
-      document.getElementById('adminLogin').value = '';
-      document.getElementById('adminPassword').value = '';
-      document.getElementById('loginError').textContent = '';
-      if (timerInterval) { clearInterval(timerInterval);
-        timerInterval = null; }
-      if (queueCheckInterval) { clearInterval(queueCheckInterval);
-        queueCheckInterval = null; }
     }
 
     // ============================================================
@@ -1073,6 +695,10 @@
           clearInterval(timerInterval);
           timerInterval = null;
           alert('⏰ Twój czas minął. Zostaniesz wylogowany.');
+          // Zwolnij sesję przed wylogowaniem
+          if (currentUser && !currentUser.isAdmin) {
+            db.ref('/currentSessionUser').remove();
+          }
           logout();
         }
       }, 1000);
@@ -1086,6 +712,25 @@
       } else {
         el.textContent = '';
       }
+    }
+
+    // ============================================================
+    // REZYGNACJA Z KOLEJKI
+    // ============================================================
+    function leaveQueue() {
+      if (!currentUser || currentUser.isAdmin) return;
+      if (!confirm('Czy na pewno chcesz zrezygnować z kolejki?')) return;
+
+      const newQueue = queue.filter(item => item.index !== currentUser.index);
+      db.ref('/queue').set(newQueue);
+      
+      // Jeśli był pierwszy i zwolnił się, zwolnij sesję
+      if (currentSessionUser === currentUser.index) {
+        db.ref('/currentSessionUser').remove();
+      }
+
+      alert('❌ Zrezygnowałeś z kolejki.');
+      logout();
     }
 
     // ============================================================
@@ -1103,18 +748,17 @@
 
     function showQR() {
       const url = window.location.href;
-      const qrUrl =
-        `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
       const win = window.open('', '_blank', 'width=400,height=450');
       if (win) {
         win.document.write(`
-            <html><head><title>Kod QR</title>
-            <style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;background:white;}img{max-width:300px;border:2px solid #e2e8f0;border-radius:16px;padding:12px;}p{margin-top:20px;color:#1e293b;font-size:14px;text-align:center;padding:0 20px;}</style>
-            </head><body>
-            <img src="${qrUrl}" alt="QR"><p>Zeskanuj, aby otworzyć stronę</p>
-            <p style="font-size:12px; color:#94a3b8;">${url}</p>
-            </body></html>
-          `);
+          <html><head><title>Kod QR</title>
+          <style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;background:white;}img{max-width:300px;border:2px solid #e2e8f0;border-radius:16px;padding:12px;}p{margin-top:20px;color:#1e293b;font-size:14px;text-align:center;padding:0 20px;}</style>
+          </head><body>
+          <img src="${qrUrl}" alt="QR"><p>Zeskanuj, aby otworzyć stronę</p>
+          <p style="font-size:12px; color:#94a3b8;">${url}</p>
+          </body></html>
+        `);
         win.document.close();
       } else {
         alert('Otwórz w przeglądarce, aby zobaczyć QR.');
@@ -1128,7 +772,7 @@
       document.getElementById('studentLoginBtn').addEventListener('click', studentLogin);
       document.getElementById('adminLoginBtn').addEventListener('click', adminLogin);
 
-      document.querySelectorAll('#loginName, #loginSurname, #loginIndex').forEach(el => {
+      document.querySelectorAll('#loginIndex').forEach(el => {
         el.addEventListener('keypress', (e) => { if (e.key === 'Enter') studentLogin(); });
       });
       document.querySelectorAll('#adminLogin, #adminPassword').forEach(el => {
